@@ -50,8 +50,18 @@ import com.constantinnovationsinc.livemultimedia.previews.VideoPreview;
 import com.constantinnovationsinc.livemultimedia.surfaces.InputSurface;
 import com.constantinnovationsinc.livemultimedia.surfaces.OutputSurface;
 
+/**********************************************************************************************
+ * This calls handles the encoding of the video using the hardware encoder in the GPU
+ * The code that contains the preview window and camera will be moved to separate classes soon
+ * The audio code will be moved as well, it will be changed over to MediaCodec instead
+ * af of using MediarRecorder
+ *********************************************************************************************/
+
 public class EncodingThread implements Runnable {
     private static final String TAG = EncodingThread.class.getName();
+    private static final int ENCODING_WIDTH = 640;
+    private static final int ENCODING_HEIGHT = 480;
+    private static final int BITRATE = 6000000;
     private static final int NUM_CAMERA_PREVIEW_BUFFERS = 2;
     private static final boolean WORK_AROUND_BUGS = false;  // avoid fatal codec bugs
     // movie length, in frames
@@ -73,24 +83,24 @@ public class EncodingThread implements Runnable {
 
     private String dirImages = null;
     private byte[] mVvideoFrameData = null;
-    private long bootTime = 0;
-    private long realTime = 0;
-    private int mBitRate  = 0;
-    private int mEncodingWidth = 0;
-    private int mEncodingHeight = 0;
-    private long mPreviewWidth = 0;
-    private long mPreviewHeight = 0;
-    private int mImageFormat = 0;
+    private long bootTime = -1;
+    private long realTime = -1;
+    private int mBitRate  = -1;
+    private int mEncodingWidth = -1;
+    private int mEncodingHeight = -1;
+    private long mPreviewWidth = -1;
+    private long mPreviewHeight = -1;
+    private int mImageFormat = -1;
 
     // used in memory calculation
-    private int mFreeMegs = 0;
-    private int  mUsedMegs = 0;
+    private int mFreeMegs = -1;
+    private int  mUsedMegs = -1;
     // largest color component delta seen (i.e. actual vs. expected)
-    private int mLargestColorDelta;
-    private int mTrackIndex;
-    private boolean mMuxerStarted;
-    private long mVideoFrameEncoded = 0;
-    private long mVideoTime = 0;
+    private int mLargestColorDelta = -1;
+    private int mTrackIndex = -1;
+    private long mVideoFrameEncoded = -1;
+    private long mVideoTime = -1;
+    private boolean mMuxerStarted = false;
     private boolean mLastTrackProcessed = false;
     /* -------private complex types --------- */
     private Context mContext = null;
@@ -99,20 +109,21 @@ public class EncodingThread implements Runnable {
     private FileOutputStream outputStream = null;
     private MediaRecorder mRec  = null;
     private Thread thread = null;
-    private MediaCodec mCodec;
-    private BufferInfo mInfo;
-    private ByteBuffer[] inputBuffers;
-    private ByteBuffer[] outputBuffers;
+    private MediaCodec mCodec = null;
+    private BufferInfo mInfo = null;
+    private ByteBuffer[] inputBuffers  = null;
+    private ByteBuffer[] outputBuffers = null;
     // allocate one of these up front so we don't need to do it every time
     private BufferInfo mBufferInfo = null;
-    private MediaFormat mFormat = null;
+    private MediaFormat mFormat    = null;
     /* -------------------------------------*/
 
     /* -------public complex types --------- */
     public  HWEncoder hwEncoder = null;
     public  HWEncoder mStreamer = null;
-    public  VideoPreview mSurfaceView;
+    public  VideoPreview mSurfaceView = null;
     // holds all the frames, as FrameCatcher loads, this class feed to encoder
+    // replace with memory mapped file instead of a static arrayList
     public  static volatile ArrayList<byte[] > mVideoFrameList = new ArrayList<byte[]>();
     public  Camera mCamera = null;
     /* -------------------------------------*/
@@ -153,7 +164,7 @@ public class EncodingThread implements Runnable {
         Log.d(TAG, "---------------------------------------------------");
 
         // this is currently using 21 megs of memory
-    	setParameters(640, 480, 6000000);
+    	setParameters( ENCODING_WIDTH, ENCODING_HEIGHT, BITRATE);
         mCamera = Camera.open(Camera.CameraInfo.CAMERA_FACING_BACK);
  		Parameters parameters = mCamera.getParameters();
 
@@ -161,7 +172,7 @@ public class EncodingThread implements Runnable {
  		queryPreviewSettings(parameters);
   		adjustPreviewSize(parameters);
 
-  		// set frame rate
+  		// set the frame rate and update the camera parameters
   		setPreviewFrameRate(parameters, FRAME_RATE);
   		adjustCamera(parameters);
   		mCamera.setParameters(parameters);
@@ -181,21 +192,31 @@ public class EncodingThread implements Runnable {
        	// encode
         startEncodingInHardware();
       	// attach streaming code here
-    	}
-    
-   		// camera ia already in landscape
-    	private void adjustCamera(Parameters parameters) {
-    			if (mContext.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE)
-    	        {                               
-    	            mCamera.setDisplayOrientation(0);
-    	        }
-    		}
-    		
-    	private void setupClock() {
-            bootTime = SystemClock.elapsedRealtime();
-   		}
+   	}
 
-		private Boolean startVideoPreview() {
+    /************************************************************
+    * ensure the view is in landscape
+    * @param parameters
+    ************************************************************/
+    private void adjustCamera(Parameters parameters) {
+        if (mContext.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE)
+        {
+            mCamera.setDisplayOrientation(0);
+        }
+    }
+
+    /**********************************************************
+    * record teh time before the encoder loop is entered
+    **********************************************************/
+    private void setupClock() {
+            bootTime = SystemClock.elapsedRealtime();
+   	}
+
+    /**********************************************************
+     * start the preview so you cna begin capturing frames
+     * @return the preview started or not
+     **********************************************************/
+	private Boolean startVideoPreview() {
      	   try {
        		   if (mSurfaceView == null) {
      			   	Log.e(TAG,  "SurfaceView is null, unable to set setPreviewDisplay!");
@@ -211,24 +232,28 @@ public class EncodingThread implements Runnable {
 		 	}
      		mCamera.startPreview();
      		return true;
- 		}
+ 	}
  
-	    /************************************************
-	     * Sets the desired frame size and bit rate.
-         * @param width
-         * @param height
-         * @param bitRate
-	     *************************************************/
-	    private synchronized void setParameters(int width, int height, int bitRate) {
+	/***********************************************************
+	* Sets the desired frame size and bit rate.
+    * @param width
+    * @param height
+    * @param bitRate
+	**********************************************************/
+	private synchronized void setParameters(int width, int height, int bitRate) {
 	               if ((width % 16) != 0 || (height % 16) != 0) {
 	                   Log.w(TAG, "WARNING: width or height not multiple of 16");
 	               }
 	         mEncodingWidth = width;
 	         mEncodingHeight = height;
 	         mBitRate = bitRate;
-	     }  
-	    
-		private void startEncodingInHardware() {
+	}
+
+    /************************************************************
+    * create the setup of teh hardware decoder by creating the
+    * MediaCodex and MediaMuxer
+    ************************************************************/
+	private void startEncodingInHardware() {
 			try {
 			     MediaCodecInfo codecInfo = selectCodec(MIME_TYPE);
 		          if (codecInfo == null) {
@@ -250,36 +275,26 @@ public class EncodingThread implements Runnable {
 	 	         mCodec.start();
 	 	         
 	 	         mBufferInfo = new BufferInfo();
-	        	
-                 // Create a MediaMuxer.  We can't add the video track and start() the muxer here,
-                 // because our MediaFormat doesn't have the Magic Goodies.  These can only be
-                 // obtained from the encoder after it has started processing data.
-                 //
-	 	            File encodedFile = new File(DEBUG_FILE_NAME_BASE,  "EncodedVideo" + mEncodingWidth + "x" + mEncodingHeight + ".mp4");
-	 	            if (encodedFile.exists()) {
-	 	            		encodedFile.delete();
-	 	            }
-	     			String outputPath = encodedFile.toString();
-	     			int format = MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4;
-	    				mMuxer = new MediaMuxer(outputPath , format);
-	                mTrackIndex = -1;
-	                mMuxerStarted = false;
-	             
-	                // delay the encoder because its encodes faster than I can fill it
-	                // wait until 50 frames are filled
-	                while (mVideoFrameList.size()  < 50)  {
-	                		try {
-								Thread.sleep(100);
-							} catch (InterruptedException e) {
-								// TODO Auto-generated catch block
-								e.printStackTrace();
-							}
-	                }
-	                while (!mVideoFrameList.isEmpty()) {
-	                   	 	Log.d(TAG, "video frames stored and waiting to be encoded: " + mVideoFrameList.size());
-	                   	 	encodeVideoFromBuffer(mCodec, colorFormat);
-	                }
-	     	} catch (IOException ioe) {
+
+                createMediaMuxer();
+                // delay the encoder because its encodes faster than I can fill it
+                // wait until 50 frames are filled
+                // Replace this code with Memory mapped file code and a timer
+                while (mVideoFrameList.size()  < 50)  {
+                        try {
+                            Thread.sleep(100);
+                        } catch (InterruptedException e) {
+                            Log.e(TAG, e.getLocalizedMessage());
+                        }
+                }
+                // most of the time the encoder sits in this loop
+                // encoding frames until there is no more left
+                // currently it is encoding faster than I can feed it
+                while (!mVideoFrameList.isEmpty()) {
+                        Log.d(TAG, "video frames stored and waiting to be encoded: " + mVideoFrameList.size());
+                        encodeVideoFromBuffer(mCodec, colorFormat);
+                }
+            } catch (IOException ioe) {
                      throw new RuntimeException("MediaMuxer creation failed", ioe);
             } catch (OutOfMemoryError error) {
             	 		Log.e(TAG, "Out of Memory when running Encoder!");
@@ -306,9 +321,35 @@ public class EncodingThread implements Runnable {
 	            // now close the child activity
 	            ((HWBroadcastingActivity)mContext).finish();
 			}   
-		}
-		
-		private void encodeVideoFromBuffer(MediaCodec encoder, int encoderColorFormat) {
+	 }
+
+    /**********************************************************************************
+    * Create a MediaMuxer.  We can't add the video track and start() the muxer here,
+    * because our MediaFormat doesn't have the Magic Goodies.  These can only be
+    * obtained from the encoder after it has started processing data.
+    ***********************************************************************************/
+    private void createMediaMuxer() {
+        File encodedFile = new File(DEBUG_FILE_NAME_BASE,  "EncodedVideo" + mEncodingWidth + "x" + mEncodingHeight + ".mp4");
+        if (encodedFile.exists()) {
+            encodedFile.delete();
+        }
+        String outputPath = encodedFile.toString();
+        int format = MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4;
+        try {
+            mMuxer = new MediaMuxer(outputPath , format);
+        } catch (IOException e) {
+            Log.e(TAG, e.getLocalizedMessage());
+        }
+        mTrackIndex = -1;
+        mMuxerStarted = false;
+    }
+
+     /******************************************************************
+     * Encode from buffer rather than a surface
+     * @param encoder - the mediacodec, currently only H264 is supported
+     * @param encoderColorFormat - color format
+     ******************************************************************/
+	 private void encodeVideoFromBuffer(MediaCodec encoder, int encoderColorFormat) {
 	
 			if (mLastTrackProcessed)
 				return;
@@ -465,21 +506,21 @@ public class EncodingThread implements Runnable {
                       		}
                        } // END OF ENODER STATUS > 0
                    }     // EMD OF ENCODER LOOP
-    		}
+    	}
 		
-		/**
-         * Generates data for frame N into the supplied buffer.  We have an 8-frame animation
-         * sequence that wraps around.  It looks like this:
-         * <pre>
-         *   0 1 2 3
-         *   7 6 5 4
-         * </pre>
-         * We draw one of the eight rectangles and leave the rest set to the zero-fill color.
-         * @param frameIndex
-         * @param colorFormat
-         * @param frameData
-         * @return none
-       */
+	   /*************************************************************************************
+       * Generates data for frame N into the supplied buffer.  We have an 8-frame animation
+       * sequence that wraps around.  It looks like this:
+       * <pre>
+       *   0 1 2 3
+       *   7 6 5 4
+       * </pre>
+       * We draw one of the eight rectangles and leave the rest set to the zero-fill color.
+       * @param frameIndex
+       * @param colorFormat
+       * @param frameData
+       * @return none
+       **************************************************************************************/
        private void generateFrame(int frameIndex, int colorFormat, byte[] frameData) {
              final int HALF_WIDTH = mEncodingWidth / 2;
              boolean semiPlanar = isSemiPlanarYUV(colorFormat);
@@ -527,11 +568,11 @@ public class EncodingThread implements Runnable {
           }
 		
 		
-		 /**
-	     * Returns the first codec capable of encoding the specified MIME type, or null if no
-	     * match was found.
-	     */
-	    private static MediaCodecInfo selectCodec(String mimeType) {
+	   /*************************************************************************************
+	   * Returns the first codec capable of encoding the specified MIME type, or null if no
+	   * match was found.
+	   *************************************************************************************/
+	   private static MediaCodecInfo selectCodec(String mimeType) {
 	            int numCodecs = MediaCodecList.getCodecCount();
 	           for (int i = 0; i < numCodecs; i++) {
 	                MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
@@ -550,11 +591,11 @@ public class EncodingThread implements Runnable {
 	            return null;
 	      }
 		
-		   /**
+		 /****************************************************************************************
          * Returns a color format that is supported by the codec and by this test code.  If no
          * match is found, this throws a test failure -- the set of formats known to the test
          * should be expanded for new platforms.
-         */
+         ****************************************************************************************/
         private static int selectColorFormat(MediaCodecInfo codecInfo, String mimeType) {
               MediaCodecInfo.CodecCapabilities capabilities = codecInfo.getCapabilitiesForType(mimeType);
               for (int i = 0; i < capabilities.colorFormats.length; i++) {
@@ -567,10 +608,10 @@ public class EncodingThread implements Runnable {
                return 0;   // not reached
            }
 		
-    		/**
-         * Returns true if this is a color format that this test code understands (i.e. we know how
+    	  /**********************************************************************************************
+          * @return - true if this is a color format that this test code understands (i.e. we know how
           * to read and generate frames in this format).
-          */
+          ***********************************************************************************************/
            private static boolean isRecognizedFormat(int colorFormat) {
         	   		boolean flag = false;
                 switch (colorFormat) {
@@ -600,51 +641,58 @@ public class EncodingThread implements Runnable {
                 return flag;
          }
            
-           /**
-            * Returns true if the specified color format is semi-planar YUV.  Throws an exception
-            * if the color format is not recognized (e.g. not YUV).
-           */
-             private static boolean isSemiPlanarYUV(int colorFormat) {
+    /****************************************************************************************
+    * Returns true if the specified color format is semi-planar YUV.  Throws an exception
+    * if the color format is not recognized (e.g. not YUV).
+     ***************************************************************************************/
+     private static boolean isSemiPlanarYUV(int colorFormat) {
                    switch (colorFormat) {
                      case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar:
                       case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420PackedPlanar:
                              return false;
-                        case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar:
-                         case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420PackedSemiPlanar:
-                         case MediaCodecInfo.CodecCapabilities.COLOR_TI_FormatYUV420PackedSemiPlanar:
+                      case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar:
+                      case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420PackedSemiPlanar:
+                      case MediaCodecInfo.CodecCapabilities.COLOR_TI_FormatYUV420PackedSemiPlanar:
                           return true;
                       default:
                           throw new RuntimeException("unknown format " + colorFormat);
                    }
-           } 
-        
-		private void startCodec() {
+     }
+
+    /*************************************************
+    * Start the video codec and create the buffers
+    **************************************************/
+	private void startCodec() {
 			  mCodec.start();          
 			  inputBuffers = mCodec.getInputBuffers();
 			  outputBuffers = mCodec.getOutputBuffers();
-		}
-		
-    		private void  	setupVideoFrameCallback() {
-    			FrameCatcher catcher = new FrameCatcher( mPreviewWidth,  mPreviewHeight);
-    	 	    long bufferSize = 0;
-    	 	    bufferSize = mPreviewWidth * mPreviewHeight  * ImageFormat.getBitsPerPixel(mImageFormat) / 8;
-    	 	    long sizeWeShouldHave = (mPreviewWidth * 	mPreviewHeight  * 3 / 2);
-    	 	    Log.d(TAG, "BufferSize for videodata is: " +   bufferSize );
-    	    	    Log.d(TAG, "Buffer size we should have is: " +  sizeWeShouldHave  );
-    	        mCamera.setPreviewCallbackWithBuffer(null);
-    		    mCamera.setPreviewCallbackWithBuffer(catcher);
-    		    for (int i = 0; i < NUM_CAMERA_PREVIEW_BUFFERS; i++) {
+	}
+
+    /**********************************************************
+     * capture video frame one by one from the preview window
+     * setup teh buffer to hold the images
+     **********************************************************/
+    private void  	setupVideoFrameCallback() {
+            FrameCatcher catcher = new FrameCatcher( mPreviewWidth,  mPreviewHeight);
+            long bufferSize = 0;
+            bufferSize = mPreviewWidth * mPreviewHeight  * ImageFormat.getBitsPerPixel(mImageFormat) / 8;
+            long sizeWeShouldHave = (mPreviewWidth * 	mPreviewHeight  * 3 / 2);
+            Log.d(TAG, "BufferSize for videodata is: " +   bufferSize );
+                Log.d(TAG, "Buffer size we should have is: " +  sizeWeShouldHave  );
+            mCamera.setPreviewCallbackWithBuffer(null);
+            mCamera.setPreviewCallbackWithBuffer(catcher);
+           for (int i = 0; i < NUM_CAMERA_PREVIEW_BUFFERS; i++) {
     		           byte [] cameraBuffer = new byte[(int)bufferSize];
     		            mCamera.addCallbackBuffer(cameraBuffer);
-    		   }
-    		}
+    	   }
+     }
 
-    /**
+    /******************************************************************************************
      *  The preview window can supprt different image formats depending on the camera make
      *  Almost all support NV21 and JPEG
      * @param parameters
-     */
-        private void    queryPreviewSettings(Parameters parameters) {
+     ****************************************************************************************/
+     private void    queryPreviewSettings(Parameters parameters) {
                List<int[]>  supportedFps = parameters.getSupportedPreviewFpsRange();
                for (int[] item : supportedFps) {
                         Log.d(TAG, "Mix preview frame rate supported: " + item[ Parameters.PREVIEW_FPS_MIN_INDEX]/ 1000  );
@@ -685,34 +733,47 @@ public class EncodingThread implements Runnable {
               }
         }
 
-         private void adjustPreviewSize(Parameters parameters) {
-            mPreviewWidth = parameters.getPreviewSize().width;
-            mPreviewHeight = parameters.getPictureSize().height;
-            Log.d(TAG, "Current preview width and height is: " + mPreviewWidth  + "," + mPreviewHeight);
-            List<Size> sizes = parameters.getSupportedPreviewSizes();
-             for (Size size : sizes) {
-                  Log.d(TAG , "Preview sizes supported by this camera is: " + size.width + "x" + size.height);
-             }
-            mPreviewWidth   = mEncodingWidth;
-            mPreviewHeight =  mEncodingHeight;
-             Log.d(TAG, "New preview size is: " +  mPreviewWidth  + "x" + mPreviewHeight );
-             parameters.setPreviewSize( (int)mPreviewWidth,  (int)mPreviewHeight);
+     /*******************************************************************
+     * Change this to the resolution you want to capture and encode to
+     * @param parameters camera preview settings
+     ******************************************************************/
+    private void adjustPreviewSize(Parameters parameters) {
+        mPreviewWidth = parameters.getPreviewSize().width;
+        mPreviewHeight = parameters.getPictureSize().height;
+        Log.d(TAG, "Current preview width and height is: " + mPreviewWidth  + "," + mPreviewHeight);
+        List<Size> sizes = parameters.getSupportedPreviewSizes();
+         for (Size size : sizes) {
+              Log.d(TAG , "Preview sizes supported by this camera is: " + size.width + "x" + size.height);
          }
+        mPreviewWidth   = mEncodingWidth;
+        mPreviewHeight =  mEncodingHeight;
+         Log.d(TAG, "New preview size is: " +  mPreviewWidth  + "x" + mPreviewHeight );
+         parameters.setPreviewSize( (int)mPreviewWidth,  (int)mPreviewHeight);
+     }
 
-         private void    setPreviewFrameRate(Parameters parameters, int frameRate) {
-             int actualMin = frameRate * 1000;
-             int actualMax = actualMin;
-             // try to lock the camera settings to get the frame rate we want
-              if (parameters.isAutoExposureLockSupported()) {
-                    parameters.setAutoExposureLock(true);
-              }
-              if (parameters.isAutoWhiteBalanceLockSupported()) {
-                    parameters.setAutoWhiteBalanceLock(true);
-              }
-              parameters.setPreviewFpsRange( actualMin, actualMax ); // for 30 fps
-         }
+    /*****************************************************************************************************
+     * Make sure the preview capture rate is consistent by locking the exposure and white balance rate
+     * @param parameters
+     * @param frameRate
+     ****************************************************************************************************/
+     private void setPreviewFrameRate(Parameters parameters, int frameRate) {
+         int actualMin = frameRate * 1000;
+         int actualMax = actualMin;
+         // try to lock the camera settings to get the frame rate we want
+          if (parameters.isAutoExposureLockSupported()) {
+                parameters.setAutoExposureLock(true);
+          }
+          if (parameters.isAutoWhiteBalanceLockSupported()) {
+                parameters.setAutoWhiteBalanceLock(true);
+          }
+          parameters.setPreviewFpsRange( actualMin, actualMax ); // for 30 fps
+     }
 
-		private void startAudioRecorder(File hscImageDir ) {
+    /**************************************************
+     * Replace this with mediaCodec
+     * @param audioDir
+     *************************************************/
+	private void startAudioRecorder(File audioDir ) {
             mRec = new MediaRecorder();
             //mHSCPreview.setCamera(mCamera);
             mRec.setAudioSource(MediaRecorder.AudioSource.MIC);
@@ -720,7 +781,7 @@ public class EncodingThread implements Runnable {
             mRec.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_WB);
             File audiofile = null;
             try {
-            		audiofile = File.createTempFile("live", ".3gp", hscImageDir);
+            		audiofile = File.createTempFile("live", ".3gp", audioDir);
             } catch(IOException e) {
             		Log.e(TAG, "sdccard error");
             }
@@ -733,9 +794,12 @@ public class EncodingThread implements Runnable {
 				Log.e(TAG, e.getMessage());
 			}
             mRec.start();
-        }
-        
-		private void startTimer() {
+     }
+
+    /************************************************
+     * Auto stop the recording after 10 seconds
+    *************************************************/
+	private void startTimer() {
 	       // run for 10 seconds
 			final Timer timer = new Timer();
 			timer.scheduleAtFixedRate(new TimerTask() {
@@ -756,35 +820,28 @@ public class EncodingThread implements Runnable {
 			10000, // run in 10 seconds
 			1000);
 			Log.d(TAG, "Timer started!");
-		}
+	}
   	 
-	    /**
-	     * Returns true if the actual color value is close to the expected color value.  Updates
-	     * mLargestColorDelta.
-	     */
-	    boolean isColorClose(int actual, int expected) {
+    /******************************************************************************************
+    * Returns true if the actual color value is close to the expected color value.  Updates
+    * mLargestColorDelta.
+    * @param actual
+    * @param expected
+    * @return is the color expected closew to what is displayed?
+    *******************************************************************************************/
+    boolean isColorClose(int actual, int expected) {
 	        final int MAX_DELTA = 8;
 	        int delta = Math.abs(actual - expected);
 	        if (delta > mLargestColorDelta) {
 	            mLargestColorDelta = delta;
 	        }
-	        return (delta <= MAX_DELTA);
-	    }    
+        return (delta <= MAX_DELTA);
+    }
 		
-      
-        private void processVideoFrame(byte[] data, Camera camera) {
-				 try {
-					 long elapsedTime = SystemClock.elapsedRealtime() - bootTime; 
-					 Log.d(TAG, "Got Camera video frame: " + elapsedTime);
-					 HWEncoder  hwEncoder = new HWEncoder();
-					 hwEncoder.mVideoFrameBuffer = new byte[ (int)(mPreviewWidth * mPreviewHeight * 3 / 2)];
-					 System.arraycopy(data, 0,  hwEncoder.mVideoFrameBuffer, 0, data.length);
-					hwEncoder.start();
-				 } catch (IOException e) {
-					e.printStackTrace();
-				}
-   	}
-	 
+
+    /***********************************************************
+     * This code will be replaced by Rest Code or socket code
+     ***********************************************************/
  	private void saveVideoToWebServer() {
 		  try {
          		final Long start = System.nanoTime();
@@ -849,25 +906,32 @@ public class EncodingThread implements Runnable {
 		  			}
 	}
 
-    /**
+    /*****************************************************************
      * Generates the presentation time for frame N, in microseconds.
-      */
+     * @param frameIndex teh index of teh frame
+     * @return long  the new time
+     ****************************************************************/
      private static long computePresentationTime(int frameIndex) {
              return 132 + frameIndex * 1000000 / FRAME_RATE;
-         }
+     }
 
- 	
+    /****************************************************************
+    * Create a directory to store the images on the device
+    *****************************************************************/
  	private void createImageDirectory() {
      // class vars
-	   dirImages = Environment.getExternalStorageDirectory() + "/hsc_images/";
+	   dirImages = Environment.getExternalStorageDirectory() + "/livemultimedia_images/";
 	   hscImageDir = new File(dirImages);
  	   if (!hscImageDir.exists()) {
  				Log.d(TAG, "This image dir created: " + dirImages);
  				hscImageDir.mkdirs();
  	   }
  	}
- 	
-	 /* Checks if external storage is available for read and write */
+
+    /*************************************************************
+    * Checks if external storage is available for read and write
+    * @return can I write to a sd card
+    **************************************************************/
     private boolean isExternalStorageWritable() {
         String state = Environment.getExternalStorageState();
         if (Environment.MEDIA_MOUNTED.equals(state)) {
@@ -876,7 +940,9 @@ public class EncodingThread implements Runnable {
         return false;
     }
 
-    /* Checks if external storage is available to at least read */
+    /*************************************************************
+    /* Checks if external storage is available to at least read
+    *************************************************************/
     private boolean isExternalStorageReadable() {
         String state = Environment.getExternalStorageState();
         if (Environment.MEDIA_MOUNTED.equals(state) ||
@@ -911,16 +977,17 @@ public class EncodingThread implements Runnable {
        checkVideoFile(destChunks);
     }
     
-        /**
-         * Edits a video file, saving the contents to a new file.  This involves decoding and
-         * re-encoding, not to mention conversions between YUV and RGB, and so may be lossy.
-         * <p>
-         * If we recognize the decoded format we can do this in Java code using the ByteBuffer[]
-         * output, but it's not practical to support all OEM formats.  By using a SurfaceTexture
-         * for output and a Surface for input, we can avoid issues with obscure formats and can
+    /*******************************************************************************************
+    * Edits a video file, saving the contents to a new file.  This involves decoding and
+    * re-encoding, not to mention conversions between YUV and RGB, and so may be lossy.
+    * <p>
+    * If we recognize the decoded format we can do this in Java code using the ByteBuffer[]
+    * output, but it's not practical to support all OEM formats.  By using a SurfaceTexture
+    * for output and a Surface for input, we can avoid issues with obscure formats and can
     * use a fragment shader to do transformations.
     * @param inputData
-    */
+    * @return VideoChunks
+    *******************************************************************************************/
     private VideoChunks editVideoFile(VideoChunks inputData) {
         			 Log.d(TAG, "editVideoFile " + mEncodingWidth + "x" + mEncodingHeight);
             VideoChunks outputData = new VideoChunks();
@@ -987,9 +1054,7 @@ public class EncodingThread implements Runnable {
            }
           return outputData;
      }
-   
-    
-    
+
     /*************************************************************
      * Generates a test video file, saving it as VideoChunks.
      * We generate frames with GL to
@@ -1086,12 +1151,12 @@ public class EncodingThread implements Runnable {
     
     
     /***************************************************************************
-     * Checks the video data.
-     * @param inputData - the video chunk to check
-     * @param decoder - the decoder to use
-     * @param surface-  the output surface to use, should be a video surface
-     * @return the number of bad frames
-     ****************************************************************************/
+    * Checks the video data.
+    * @param inputData - the video chunk to check
+    * @param decoder - the decoder to use
+    * @param surface-  the output surface to use, should be a video surface
+    * @return the number of bad frames
+    ****************************************************************************/
     private int checkVideoData(VideoChunks inputData, MediaCodec decoder, OutputSurface surface) {
         final int TIMEOUT_USEC = 1000;
         ByteBuffer[] decoderInputBuffers = decoder.getInputBuffers();
@@ -1174,16 +1239,16 @@ public class EncodingThread implements Runnable {
             }
         }
         return badFrames;
-       }
+    }
     
-       /***************************************************************************************
-        * Generates video frames, feeds them into the encoder, and writes the output to the
-        * VideoChunks instance.
-        * @param encoder = the encoder to use for the transformation
-        * @param inputSurface - inputSurface of the videoChunks
-        * @param output - The VideoChunk to generate of
-        **************************************************************************************/
-       private void generateVideoData(MediaCodec encoder, InputSurface inputSurface,
+    /***************************************************************************************
+    * Generates video frames, feeds them into the encoder, and writes the output to the
+    * VideoChunks instance.
+    * @param encoder = the encoder to use for the transformation
+    * @param inputSurface - inputSurface of the videoChunks
+    * @param output - The VideoChunk to generate of
+    **************************************************************************************/
+    private void generateVideoData(MediaCodec encoder, InputSurface inputSurface,
                 VideoChunks output) {
             final int TIMEOUT_USEC = 10000;
             ByteBuffer[] encoderOutputBuffers = encoder.getOutputBuffers();
@@ -1282,10 +1347,10 @@ public class EncodingThread implements Runnable {
     
     
     /*******************************************************************
-     * Checks the frame for correctness, using GL to check RGB values.
-     * @param frameIndex  - the index to which frame to check for
-     * @return true if the frame looks good
-     ********************************************************************/
+    * Checks the frame for correctness, using GL to check RGB values.
+    * @param frameIndex  - the index to which frame to check for
+    * @return true if the frame looks good
+    ********************************************************************/
     private boolean checkSurfaceFrame(int frameIndex) {
         ByteBuffer pixelBuf = ByteBuffer.allocateDirect(4);
         boolean frameFailed = false;
@@ -1328,7 +1393,7 @@ public class EncodingThread implements Runnable {
         return !frameFailed;
     }
     
-    /***************************************************************************************
+   /***************************************************************************************
      * Generates a frame of data using GL commands.
      * <p>
     * We have an 8-frame animation sequence that wraps around.  It looks like this:
@@ -1339,7 +1404,7 @@ public class EncodingThread implements Runnable {
     * We draw one of the eight rectangles and leave the rest set to the zero-fill color.
     * @param frameIndex
      ***************************************************************************************/
-      private void generateSurfaceFrame(int frameIndex) {
+   private void generateSurfaceFrame(int frameIndex) {
            frameIndex %= 8;
    
            int startX, startY;
