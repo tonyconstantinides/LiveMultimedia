@@ -14,7 +14,6 @@
  limitations under the License.
 -->
 <resources>
-
-    <style name="MaterialTheme" parent="android:Theme.Material.Light.NoActionBar.Fullscreen" />
-
+    <style name="AppBaseTheme" parent="android:Theme.Holo.Light"/>
+    <style name="AppTheme" parent="AppBaseTheme"/>
 </resources>

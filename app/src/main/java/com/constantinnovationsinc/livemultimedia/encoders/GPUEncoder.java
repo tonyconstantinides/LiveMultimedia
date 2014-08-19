@@ -1,11 +1,9 @@
 package com.constantinnovationsinc.livemultimedia.encoders;
 
 import android.content.Context;
-import android.content.res.Configuration;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
 import android.graphics.YuvImage;
-import android.hardware.Camera;
 import android.hardware.Camera.Parameters;
 import android.hardware.Camera.Size;
 import android.media.MediaCodec;
@@ -44,11 +42,11 @@ import java.util.Timer;
 import java.util.TimerTask;
 import javax.microedition.khronos.opengles.GL10;
 
-import com.constantinnovationsinc.livemultimedia.activities.HWBroadcastingActivity;
-import com.constantinnovationsinc.livemultimedia.previews.FrameCatcher;
+import com.constantinnovationsinc.livemultimedia.cameras.JellyBeanCamera;
 import com.constantinnovationsinc.livemultimedia.previews.VideoPreview;
 import com.constantinnovationsinc.livemultimedia.surfaces.InputSurface;
 import com.constantinnovationsinc.livemultimedia.surfaces.OutputSurface;
+import com.constantinnovationsinc.livemultimedia.utilities.SharedVideoMemory;
 
 /**********************************************************************************************
  * This calls handles the encoding of the video using the hardware encoder in the GPU
@@ -57,8 +55,8 @@ import com.constantinnovationsinc.livemultimedia.surfaces.OutputSurface;
  * af of using MediarRecorder
  *********************************************************************************************/
 
-public class EncodingThread implements Runnable {
-    private static final String TAG = EncodingThread.class.getName();
+public class GPUEncoder {
+    private static final String TAG = GPUEncoder.class.getName();
     private static final int ENCODING_WIDTH = 640;
     private static final int ENCODING_HEIGHT = 480;
     private static final int BITRATE = 6000000;
@@ -86,428 +84,118 @@ public class EncodingThread implements Runnable {
     private long bootTime = -1;
     private long realTime = -1;
     private int mBitRate  = -1;
-    private int mEncodingWidth = -1;
+    private int mEncodingWidth  = -1;
     private int mEncodingHeight = -1;
-    private long mPreviewWidth = -1;
+    private long mPreviewWidth  = -1;
     private long mPreviewHeight = -1;
-    private int mImageFormat = -1;
-
+    private int mImageFormat    = -1;
     // used in memory calculation
     private int mFreeMegs = -1;
     private int  mUsedMegs = -1;
+    private int mColorFormat = -1;
     // largest color component delta seen (i.e. actual vs. expected)
     private int mLargestColorDelta = -1;
     private int mTrackIndex = -1;
     private long mVideoFrameEncoded = -1;
     private long mVideoTime = -1;
     private boolean mMuxerStarted = false;
-    private boolean mLastTrackProcessed = false;
+
     /* -------private complex types --------- */
     private Context mContext = null;
     private File hscImageDir = null;
-    private MediaMuxer mMuxer = null;
-    private FileOutputStream outputStream = null;
-    private MediaRecorder mRec  = null;
-    private Thread thread = null;
+
     private MediaCodec mCodec = null;
     private BufferInfo mInfo = null;
     private ByteBuffer[] inputBuffers  = null;
     private ByteBuffer[] outputBuffers = null;
     // allocate one of these up front so we don't need to do it every time
-    private BufferInfo mBufferInfo = null;
-    private MediaFormat mFormat    = null;
-    /* -------------------------------------*/
-
-    /* -------public complex types --------- */
-    public  HWEncoder hwEncoder = null;
-    public  HWEncoder mStreamer = null;
-    public  VideoPreview mSurfaceView = null;
-    // holds all the frames, as FrameCatcher loads, this class feed to encoder
-    // replace with memory mapped file instead of a static arrayList
-    public  static volatile ArrayList<byte[] > mVideoFrameList = new ArrayList<byte[]>();
-    public  Camera mCamera = null;
-    /* -------------------------------------*/
+    public BufferInfo mBufferInfo = null;
+    public MediaFormat mFormat    = null;
+    public  JellyBeanCamera mCamera = null;
 
     /*********************************************************************
      * Constructor
-     * @param context - the context associated with this encoding thread
-4     *********************************************************************/
-    EncodingThread(Context context) {
-    		mContext = context;
-    }
-
-    /*********************************************************************
-     * Start the encoding thread
-     * @return context - the context associated with this encoding thread
      *********************************************************************/
-    public void start() throws IOException {
-    	 if (thread == null) {
-            thread = new Thread(this);
-            thread.start();
-        }
+    public GPUEncoder() {
     }
-    
- 	@Override
-	public void run() {
- 		startEncoding();
-	}
 
-    /****************************************************************************
-     *  Start the show by settings up the preview window and the callbacks
-     *  It then starts the video and audio encoding process
-    ****************************************************************************/
-    public synchronized  void startEncoding( ) {
-		mFreeMegs = (int) (Runtime.getRuntime().freeMemory() - Debug.getNativeHeapFreeSize());
+    public synchronized void  reportMemoryUsage() {
+        mFreeMegs = (int) (Runtime.getRuntime().freeMemory() - Debug.getNativeHeapFreeSize());
         String freeMegsString = String.format(" - Free Memory  %d MB", mFreeMegs);
         Log.d(TAG, "---------------------------------------------------");
         Log.d(TAG, "Memory free to be used in this app in megs is: " + freeMegsString);
         Log.d(TAG, "---------------------------------------------------");
+    }
 
-        // this is currently using 21 megs of memory
-    	setParameters( ENCODING_WIDTH, ENCODING_HEIGHT, BITRATE);
-        mCamera = Camera.open(Camera.CameraInfo.CAMERA_FACING_BACK);
- 		Parameters parameters = mCamera.getParameters();
-
- 		// set the preview size
- 		queryPreviewSettings(parameters);
-  		adjustPreviewSize(parameters);
-
-  		// set the frame rate and update the camera parameters
-  		setPreviewFrameRate(parameters, FRAME_RATE);
-  		adjustCamera(parameters);
-  		mCamera.setParameters(parameters);
-
-  		// set up the callback to capture the video frames
-  		setupVideoFrameCallback();
-      	if (!startVideoPreview()) {
-        		Log.e(TAG, "Preview Display problem, exit.....");
-        		return;
-       	}
+    /****************************************************************************
+     *  prepare() - Starts the show by settings up the preview window and the callbacks
+     *  It then starts the video and audio encoding process
+    ****************************************************************************/
+    public synchronized  void prepare( ) {
+        reportMemoryUsage();
 
        	// the recording will end after 10 seconds
        	setupClock();
-       	startAudioRecorder(hscImageDir);
         startTimer();
 
-       	// encode
-        startEncodingInHardware();
-      	// attach streaming code here
+       	// create codec
+        createVideoCodec();
    	}
 
-    /************************************************************
-    * ensure the view is in landscape
-    * @param parameters
-    ************************************************************/
-    private void adjustCamera(Parameters parameters) {
-        if (mContext.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE)
-        {
-            mCamera.setDisplayOrientation(0);
-        }
-    }
 
     /**********************************************************
-    * record teh time before the encoder loop is entered
-    **********************************************************/
-    private void setupClock() {
-            bootTime = SystemClock.elapsedRealtime();
-   	}
-
-    /**********************************************************
-     * start the preview so you cna begin capturing frames
-     * @return the preview started or not
+     * release() the encoder which removes the encoder
      **********************************************************/
-	private Boolean startVideoPreview() {
-     	   try {
-       		   if (mSurfaceView == null) {
-     			   	Log.e(TAG,  "SurfaceView is null, unable to set setPreviewDisplay!");
-     			   	return false;
-     		   }
-      	   	   if (mSurfaceView.getHolder() == null) {
-     		   		 	Log.e(TAG,  "SurfaceView, SurfaceHolder is null, previewDisplay not setup!");
-     		 		   	return false;
-      		   }
-  			  mCamera.setPreviewDisplay( mSurfaceView.getHolder());
-		 	} catch (IOException e) {
-			 	Log.e(TAG ,  e.getMessage());
-		 	}
-     		mCamera.startPreview();
-     		return true;
- 	}
- 
-	/***********************************************************
-	* Sets the desired frame size and bit rate.
-    * @param width
-    * @param height
-    * @param bitRate
-	**********************************************************/
-	private synchronized void setParameters(int width, int height, int bitRate) {
-	               if ((width % 16) != 0 || (height % 16) != 0) {
-	                   Log.w(TAG, "WARNING: width or height not multiple of 16");
-	               }
-	         mEncodingWidth = width;
-	         mEncodingHeight = height;
-	         mBitRate = bitRate;
-	}
-
-    /************************************************************
-    * create the setup of teh hardware decoder by creating the
-    * MediaCodex and MediaMuxer
-    ************************************************************/
-	private void startEncodingInHardware() {
-			try {
-			     MediaCodecInfo codecInfo = selectCodec(MIME_TYPE);
-		          if (codecInfo == null) {
-		                Log.e(TAG, "Unable to find an appropriate codec for " + MIME_TYPE);
-		                return;
-		          }
-		         Log.d(TAG, "found codec: " + codecInfo.getName());
-				 int colorFormat = selectColorFormat(codecInfo, MIME_TYPE);
-				 Log.d(TAG, "Color format found: " + colorFormat);
-	
-				 mFormat =  MediaFormat.createVideoFormat(MIME_TYPE, mEncodingWidth, mEncodingHeight);
-	             mFormat.setInteger(MediaFormat.KEY_BIT_RATE,  mBitRate );
-	 	         mFormat.setInteger(MediaFormat.KEY_FRAME_RATE,  FRAME_RATE);
-	 	         mFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, colorFormat);
-	 	         mFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 5);
-	 	    
-	 	         mCodec = MediaCodec.createByCodecName(codecInfo.getName());
-	 		     mCodec.configure(mFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-	 	         mCodec.start();
-	 	         
-	 	         mBufferInfo = new BufferInfo();
-
-                createMediaMuxer();
-                // delay the encoder because its encodes faster than I can fill it
-                // wait until 50 frames are filled
-                // Replace this code with Memory mapped file code and a timer
-                while (mVideoFrameList.size()  < 50)  {
-                        try {
-                            Thread.sleep(100);
-                        } catch (InterruptedException e) {
-                            Log.e(TAG, e.getLocalizedMessage());
-                        }
-                }
-                // most of the time the encoder sits in this loop
-                // encoding frames until there is no more left
-                // currently it is encoding faster than I can feed it
-                while (!mVideoFrameList.isEmpty()) {
-                        Log.d(TAG, "video frames stored and waiting to be encoded: " + mVideoFrameList.size());
-                        encodeVideoFromBuffer(mCodec, colorFormat);
-                }
-            } catch (IOException ioe) {
-                     throw new RuntimeException("MediaMuxer creation failed", ioe);
-            } catch (OutOfMemoryError error) {
-            	 		Log.e(TAG, "Out of Memory when running Encoder!");
-            }
-			finally {
-		    	 	Log.d(TAG, "releasing codecs");
-	            if (mMuxer != null) {
-	                mMuxer.stop();
-	                mMuxer.release();
-	                mMuxer = null;
-	            }
-	            if (mCodec != null) {
-	                mCodec.stop();
-	                mCodec.release();
-	            }
-	            // free memory
-	            mVideoFrameList.clear();
-	            if (mCamera != null) {
-	            		mCamera.addCallbackBuffer(null);
-	            		mCamera.stopPreview();
-	            		mCamera.release();
-	            		mCamera = null;
-	  	      }
-	            // now close the child activity
-	            ((HWBroadcastingActivity)mContext).finish();
-			}   
-	 }
-
-    /**********************************************************************************
-    * Create a MediaMuxer.  We can't add the video track and start() the muxer here,
-    * because our MediaFormat doesn't have the Magic Goodies.  These can only be
-    * obtained from the encoder after it has started processing data.
-    ***********************************************************************************/
-    private void createMediaMuxer() {
-        File encodedFile = new File(DEBUG_FILE_NAME_BASE,  "EncodedVideo" + mEncodingWidth + "x" + mEncodingHeight + ".mp4");
-        if (encodedFile.exists()) {
-            encodedFile.delete();
+    public synchronized void release() {
+        if (mCodec != null) {
+            mCodec.stop();
+            mCodec.release();
+            mCodec = null;
         }
-        String outputPath = encodedFile.toString();
-        int format = MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4;
-        try {
-            mMuxer = new MediaMuxer(outputPath , format);
-        } catch (IOException e) {
-            Log.e(TAG, e.getLocalizedMessage());
-        }
-        mTrackIndex = -1;
-        mMuxerStarted = false;
     }
 
-     /******************************************************************
-     * Encode from buffer rather than a surface
-     * @param encoder - the mediacodec, currently only H264 is supported
-     * @param encoderColorFormat - color format
-     ******************************************************************/
-	 private void encodeVideoFromBuffer(MediaCodec encoder, int encoderColorFormat) {
-	
-			if (mLastTrackProcessed)
-				return;
-			
-			    // Loop until the output side is done.
-			      boolean inputDone = false;
- 		   		  boolean encoderDone = false;
- 		   		  boolean outputDone = false;
-		          final int TIMEOUT_USEC = 10000;
-		          mVideoFrameEncoded++;
-		          mVideoTime = mVideoFrameEncoded * 32; // 30 frame a second
-		          
-                   ByteBuffer[] encoderInputBuffers = encoder.getInputBuffers();
-                   ByteBuffer[] encoderOutputBuffers = encoder.getOutputBuffers();
-                   MediaFormat decoderOutputFormat = null;
-                   int checkIndex = 0;
-                   int badFrames = 0;
-                   // The size of a frame of video data, in the formats we handle, is stride*sliceHeight
-                   // for Y, and (stride/2)*(sliceHeight/2) for each of the Cb and Cr channels.  Application
-                  // of algebra and assuming that stride==width and sliceHeight==height yields:
-                   
-                   // estimated memory usage
-                   mUsedMegs = (int) (Debug.getNativeHeapAllocatedSize() / 1048576L);
-                   String usedMegsString = String.format(" - Memory Used: %d MB", mUsedMegs);
-                   Log.d(TAG, "Memory used in megs is: " + usedMegsString);
-                   // try and predict if the memory allocation will fail
-                   int memoryLeft = mFreeMegs - mUsedMegs;
-                   if (memoryLeft <= 2) {
-                	      Log.e(TAG,  "Memory left in megs is roughly: " + memoryLeft);
-                   }
-                		   
-                  byte[] frameData = new byte[mEncodingWidth * mEncodingHeight * 3 / 2];
-                  byte[] 	videoFrame = new byte[frameData.length];
-                  if (!mVideoFrameList.isEmpty() ) {
-                	  		 	videoFrame = mVideoFrameList.remove(0);
-                  }
-                  if (videoFrame != null) {
-                	  		System.arraycopy(videoFrame, 0, frameData, 0, videoFrame.length);
-                  }
-                  // release it
-                  videoFrame = null;
-                   // If we're not done submitting frames, generate a new one and submit it.  By
-                   // doing this on every loop we're working to ensure that the encoder always has
-                   // work to do.
-                   //
-                   // We don't really want a timeout here, but sometimes there's a delay opening
-                   // the encoder device, so a short timeout can keep us from spinning hard.
-                   if (!inputDone) {
-                       int inputBufIndex = encoder.dequeueInputBuffer(TIMEOUT_USEC);
-                       Log.d(TAG, "inputBufIndex=" + inputBufIndex);
-                       if (inputBufIndex >= 0) {
-                           if (mVideoFrameList.isEmpty()) {
-                               // Send an empty frame with the end-of-stream flag set.  If we set EOS
-                              // on a frame with data, that frame data will be ignored, and the
-                               // output will be short one frame.
-                               encoder.queueInputBuffer(inputBufIndex, 0, 0, mVideoTime,
-                                       MediaCodec.BUFFER_FLAG_END_OF_STREAM);
-                               		inputDone = true;
-                               Log.d(TAG, "sent input EOS (with zero-length frame)");
-                           } else {
-                               ByteBuffer inputBuf = encoderInputBuffers[inputBufIndex];
-                               // the buffer should be sized to hold one full frame
-                              if (inputBuf.capacity() >= frameData.length) {
-                              		Log.d(TAG,  "buffer resize to hold correct size");
-                              } else{
-                            		Log.e(TAG, "buffer not correct size to fit a frame");
-                              }
-                              inputBuf.clear();
-                              inputBuf.put(frameData);
-                              encoder.queueInputBuffer(inputBufIndex, 0, frameData.length, mVideoTime, 0);
-                              Log.d(TAG, "submitted frame " + mVideoFrameEncoded + " to hardware encoder");
-                           }
-                       } else {
-                           // either all in use, or we timed out during initial setup
-                            Log.d(TAG, "input buffer not available");
-                       }
-                  }
-           			// Just out of curiosity.
-                   long rawSize = 0;
-                   long encodedSize = 0;       
-                  
-                   
-                   if (!encoderDone) {
-                	   int encoderStatus = encoder.dequeueOutputBuffer(mBufferInfo , TIMEOUT_USEC);
-                       if (encoderStatus == MediaCodec.INFO_TRY_AGAIN_LATER) {
-                           		// no output available yet
-                  	   	       Log.d(TAG, "-------------------------------------------------------------");
-                               Log.d(TAG, "Encoder status: no output from encoder available");
-                          	   Log.d(TAG, "-------------------------------------------------------------");
-                
-                       } else if (encoderStatus == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
-                    	   			// not expected for an encoder
-                           		encoderOutputBuffers = encoder.getOutputBuffers();
-                 	   	        Log.d(TAG, "-------------------------------------------------------------");
-                           		Log.d(TAG, "Encoder status: encoder output buffers changed");
-                           	    Log.d(TAG, "-------------------------------------------------------------");
-                       } else if (encoderStatus == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                    	   			// not expected for an encoder
-                      	 		MediaFormat newFormat = encoder.getOutputFormat();
-                   	   	        Log.d(TAG, "-------------------------------------------------------------");
-                          		Log.d(TAG, "Encoder status: encoder output format changed: " + newFormat);
-                          	    Log.d(TAG, "-------------------------------------------------------------");
-                                
-                      	 		// should happen before receiving buffers, and should only happen once
-                                if (mMuxerStarted) {
-                                    Log.e(TAG, "Encoder status: Something wrong, format changed twice");
-                                }
-                               // now that we have the Magic Goodies, start the muxer
-                                mTrackIndex = mMuxer.addTrack(newFormat);
-                                mMuxer.start();
-                                mMuxerStarted = true;
-                           		Log.d(TAG, "-------------------------------------------------------------");
-                                Log.d(TAG, "Muxer started!");
-                                Log.d(TAG, "-------------------------------------------------------------");
-                                // reduce the encoded video tracks
-                               mVideoFrameEncoded = 0;
-                       } else if (encoderStatus < 0) {
-                    	   			Log.e(TAG, "unexpected result from encoder.dequeueOutputBuffer: " + encoderStatus);
-                       } else { // encoderStatus >= 0
-                              ByteBuffer encodedData = encoderOutputBuffers[encoderStatus];
-                   	    	  // Codec config info.  Only expected on first packet.  One way to
-                    		  // handle this is to manually stuff the data into the MediaFormat
-                    		  // and pass that to configure().  
-                              if ((mBufferInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
-                                // The codec config data was pulled out and fed to the muxer when we got
-                                // the INFO_OUTPUT_FORMAT_CHANGED status.  Ignore it.
-                               Log.d(TAG, "ignoring BUFFER_FLAG_CODEC_CONFIG");
-                               mBufferInfo.size = 0;
-                              }
-                    	      if (encodedData == null) {
-                                  Log.e(TAG, "encoderOutputBuffer " + encoderStatus + " was null");
-                              } else  if ( mVideoFrameEncoded  == 1) {
-                                    Log.d(TAG, "-----------------------------------");
-                                    Log.d(TAG, "Setting csd-0 on first track");
-                                    Log.d(TAG, "-----------------------------------");
-                                    mFormat.setByteBuffer("csd-0", encodedData);
-                              }
-                 	          // It's usually necessary to adjust the ByteBuffer values to match BufferInfo.
-                          	 if (mBufferInfo.size != 0) {
-                          		  encodedData.position( mBufferInfo.offset);
-                          	      encodedData.limit(mBufferInfo.offset + mBufferInfo.size);
-                          	      encodedSize += mBufferInfo.size;
-                          	      Log.d(TAG, "Writing Video data using MediaMuxer");
-                                   mMuxer.writeSampleData(mTrackIndex, encodedData, mBufferInfo);
-                                   Log.d(TAG, "sent " + mBufferInfo.size + " bytes to muxer");
-                                   // pass encoded track to streamer
-                                   //mStreamer.writeVideoChunk( encodedData.array() );
-                          	  }
-                   	  	   	  // now release the encoder buffer so the MediaCodec can reuse
-                             encoder.releaseOutputBuffer(encoderStatus, false);
-                             if ((mBufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
-                      			Log.d(TAG, "output EOS");
-                      			mLastTrackProcessed = true;
-                      		}
-                       } // END OF ENODER STATUS > 0
-                   }     // EMD OF ENCODER LOOP
-    	}
-		
+    public synchronized MediaCodec getCodec() {
+        return mCodec;
+    }
+
+    public synchronized int getColorFormat() {
+        return mColorFormat;
+    }
+
+    /*******************************************************************
+     * setupClock() record the time before the encoder loop is entered
+     *******************************************************************/
+    private synchronized void setupClock() {
+        bootTime = SystemClock.elapsedRealtime();
+    }
+
+    /*******************************************************************
+    * createVideoCodec() creates the video codec which is H264 based
+    ******************************************************************/
+    private void createVideoCodec() {
+        Log.d(TAG, "--->createVideoCodec()");
+        MediaCodecInfo codecInfo = selectCodec(MIME_TYPE);
+        if (codecInfo == null) {
+            Log.e(TAG, "Unable to find an appropriate codec for " + MIME_TYPE);
+            return;
+        }
+        Log.d(TAG, "found codec: " + codecInfo.getName());
+
+        mColorFormat = selectColorFormat(codecInfo, MIME_TYPE);
+        Log.d(TAG, "Color format found: " + mColorFormat);
+
+        mFormat =  MediaFormat.createVideoFormat(MIME_TYPE, mEncodingWidth, mEncodingHeight);
+        mFormat.setInteger(MediaFormat.KEY_BIT_RATE,  mBitRate );
+        mFormat.setInteger(MediaFormat.KEY_FRAME_RATE,  FRAME_RATE);
+        mFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, mColorFormat);
+        mFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 5);
+
+        mCodec = MediaCodec.createByCodecName(codecInfo.getName());
+        mCodec.configure(mFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+        mCodec.start();
+        mBufferInfo = new BufferInfo();
+    }
+
 	   /*************************************************************************************
        * Generates data for frame N into the supplied buffer.  We have an 8-frame animation
        * sequence that wraps around.  It looks like this:
@@ -521,7 +209,7 @@ public class EncodingThread implements Runnable {
        * @param frameData
        * @return none
        **************************************************************************************/
-       private void generateFrame(int frameIndex, int colorFormat, byte[] frameData) {
+    private void generateFrame(int frameIndex, int colorFormat, byte[] frameData) {
              final int HALF_WIDTH = mEncodingWidth / 2;
              boolean semiPlanar = isSemiPlanarYUV(colorFormat);
       
@@ -565,7 +253,7 @@ public class EncodingThread implements Runnable {
                       }
                   }
               }
-          }
+       }
 		
 		
 	   /*************************************************************************************
@@ -663,29 +351,10 @@ public class EncodingThread implements Runnable {
     * Start the video codec and create the buffers
     **************************************************/
 	private void startCodec() {
-			  mCodec.start();          
-			  inputBuffers = mCodec.getInputBuffers();
-			  outputBuffers = mCodec.getOutputBuffers();
+	  mCodec.start();
+      inputBuffers = mCodec.getInputBuffers();
+	  outputBuffers = mCodec.getOutputBuffers();
 	}
-
-    /**********************************************************
-     * capture video frame one by one from the preview window
-     * setup teh buffer to hold the images
-     **********************************************************/
-    private void  	setupVideoFrameCallback() {
-            FrameCatcher catcher = new FrameCatcher( mPreviewWidth,  mPreviewHeight);
-            long bufferSize = 0;
-            bufferSize = mPreviewWidth * mPreviewHeight  * ImageFormat.getBitsPerPixel(mImageFormat) / 8;
-            long sizeWeShouldHave = (mPreviewWidth * 	mPreviewHeight  * 3 / 2);
-            Log.d(TAG, "BufferSize for videodata is: " +   bufferSize );
-                Log.d(TAG, "Buffer size we should have is: " +  sizeWeShouldHave  );
-            mCamera.setPreviewCallbackWithBuffer(null);
-            mCamera.setPreviewCallbackWithBuffer(catcher);
-           for (int i = 0; i < NUM_CAMERA_PREVIEW_BUFFERS; i++) {
-    		           byte [] cameraBuffer = new byte[(int)bufferSize];
-    		            mCamera.addCallbackBuffer(cameraBuffer);
-    	   }
-     }
 
     /******************************************************************************************
      *  The preview window can supprt different image formats depending on the camera make
@@ -766,34 +435,7 @@ public class EncodingThread implements Runnable {
           if (parameters.isAutoWhiteBalanceLockSupported()) {
                 parameters.setAutoWhiteBalanceLock(true);
           }
-          parameters.setPreviewFpsRange( actualMin, actualMax ); // for 30 fps
-     }
-
-    /**************************************************
-     * Replace this with mediaCodec
-     * @param audioDir
-     *************************************************/
-	private void startAudioRecorder(File audioDir ) {
-            mRec = new MediaRecorder();
-            //mHSCPreview.setCamera(mCamera);
-            mRec.setAudioSource(MediaRecorder.AudioSource.MIC);
-            mRec.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
-            mRec.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_WB);
-            File audiofile = null;
-            try {
-            		audiofile = File.createTempFile("live", ".3gp", audioDir);
-            } catch(IOException e) {
-            		Log.e(TAG, "sdccard error");
-            }
-            mRec.setOutputFile(audiofile.getAbsolutePath());
-            try {
-				mRec.prepare();
-			} catch (IllegalStateException e) {
-				Log.e(TAG, e.getMessage());
-			} catch (IOException e) {
-				Log.e(TAG, e.getMessage());
-			}
-            mRec.start();
+          parameters.setPreviewFpsRange(actualMin, actualMax); // for 30 fps
      }
 
     /************************************************
@@ -803,22 +445,17 @@ public class EncodingThread implements Runnable {
 	       // run for 10 seconds
 			final Timer timer = new Timer();
 			timer.scheduleAtFixedRate(new TimerTask() {
-				 @Override
-				    public void run() {
-						Log.d(TAG, "Timer ended after approx 10 seconds!!!");
-						Log.d(TAG, "Stopping any encoding and recroding");
-						timer.cancel(); // 10 seconds up stop the timer
-					 	mRec.stop();
-					 	mRec.reset();
-					 	mRec.release();
-				        mCamera.stopPreview();
-				        mCamera.release();
-				        mCamera = null;
-				        mRec = null;
-				 }			
-			},
-			10000, // run in 10 seconds
-			1000);
+                                          @Override
+                                          public void run() {
+                                              Log.d(TAG, "Timer ended after approx 10 seconds!!!");
+                                              Log.d(TAG, "Stopping any encoding and recroding");
+                                              timer.cancel(); // 10 seconds up stop the timer
+                                              mCamera.release();
+                                              mCamera = null;
+                                          }
+                                      },
+                    10000, // run in 10 seconds
+                    1000);
 			Log.d(TAG, "Timer started!");
 	}
   	 
@@ -1012,11 +649,7 @@ public class EncodingThread implements Runnable {
                inputFormat.getInteger(MediaFormat.KEY_I_FRAME_INTERVAL));
     
                outputData.setMediaFormat(outputFormat);
-                try {
-                    encoder = MediaCodec.createEncoderByType(MIME_TYPE);
-                } catch (IOException e) {
-                    Log.e(TAG, e.fillInStackTrace().getMessage());
-                }
+               encoder = MediaCodec.createEncoderByType(MIME_TYPE);
                 encoder.configure(outputFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
                inputSurface = new InputSurface(encoder.createInputSurface());
 
@@ -1024,11 +657,7 @@ public class EncodingThread implements Runnable {
                 encoder.start();
     
                // OutputSurface uses the EGL context created by InputSurface.
-                try {
-                    decoder = MediaCodec.createDecoderByType(MIME_TYPE);
-                } catch (IOException e) {
-                    Log.e(TAG, e.fillInStackTrace().getLocalizedMessage());
-                }
+                decoder = MediaCodec.createDecoderByType(MIME_TYPE);
                 outputSurface = new OutputSurface();
                //outputSurface.changeFragmentShader(FRAGMENT_SHADER);
                decoder.configure(inputFormat, outputSurface.getSurface(), null, 0);
@@ -1088,11 +717,7 @@ public class EncodingThread implements Runnable {
             output.setMediaFormat(format);
             // Create a MediaCodec for the desired codec, then configure it as an encoder with
             // our desired properties.
-            try {
-                encoder = MediaCodec.createByCodecName(codecInfo.getName());
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            encoder = MediaCodec.createByCodecName(codecInfo.getName());
             encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
             inputSurface = new InputSurface(encoder.createInputSurface());
             inputSurface.makeCurrent();
@@ -1126,11 +751,7 @@ public class EncodingThread implements Runnable {
         try {
             surface = new OutputSurface(mEncodingWidth, mEncodingHeight);
             MediaFormat format = inputData.getMediaFormat();
-            try {
-                decoder = MediaCodec.createDecoderByType(MIME_TYPE);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            decoder = MediaCodec.createDecoderByType(MIME_TYPE);
             decoder.configure(format, surface.getSurface(), null, 0);
             decoder.start();
             int badFrames = checkVideoData(inputData, decoder, surface);
