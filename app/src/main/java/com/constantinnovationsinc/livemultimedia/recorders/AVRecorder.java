@@ -14,11 +14,16 @@ import android.media.MediaRecorder.AudioSource;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.FileNotFoundException;
 
 import com.constantinnovationsinc.livemultimedia.app.MultimediaApp;
 import com.constantinnovationsinc.livemultimedia.encoders.GPUEncoder;
 import com.constantinnovationsinc.livemultimedia.encoders.AudioEncoder;
+import com.constantinnovationsinc.livemultimedia.utilities.DeviceNetwork;
 import com.constantinnovationsinc.livemultimedia.utilities.SharedVideoMemory;
+import com.constantinnovationsinc.livemultimedia.utilities.HttpFileUpload;
 import com.constantinnovationsinc.livemultimedia.R;
 
 /**`
@@ -54,7 +59,6 @@ public class AVRecorder implements Runnable{
 
     /** SharedVideoMemory that holds all vidoe buffers */
     private SharedVideoMemory mSharedMemFile = null;
-
     private Boolean mSoundLoaded = false;
     private SoundPool soundPool = null;
     private HashMap<Integer, Integer> soundPoolMap;
@@ -116,6 +120,27 @@ public class AVRecorder implements Runnable{
         }
     }
 
+
+    public synchronized void uploadFile() {
+        Thread uploadThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    // Set your file path here
+                    FileInputStream fstrm = new FileInputStream(Environment.getExternalStorageDirectory().toString() + "/Movies/EncodedAV-1280x720.mp4");
+                    // Set your server page url (and the file title/description)
+                    String url = "http://" + DeviceNetwork.getIPAddress(true) + ":8080";
+                    HttpFileUpload hfu = new HttpFileUpload(url, "Video file", "Recorded file");
+                    hfu.Send_Now(fstrm);
+                } catch (FileNotFoundException e) {
+                    Log.e(TAG, e.toString());
+                } catch (Exception e) {
+                    Log.e(TAG, e.toString());
+                }
+            }
+        });
+        uploadThread.start();
+    }
 
     public synchronized void playSound(String sound) {
         soundPool = new SoundPool(4, AudioManager.STREAM_MUSIC, 0);

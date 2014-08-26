@@ -2,7 +2,6 @@ package com.constantinnovationsinc.livemultimedia.previews;
 
 import android.content.Context;
 import android.content.res.Configuration;
-import android.os.Looper;
 import android.os.Process;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -11,13 +10,25 @@ import android.util.Log;
 import android.graphics.SurfaceTexture;
 import android.view.TextureView;
 import android.view.TextureView.SurfaceTextureListener;
-import java.lang.RuntimeException;
+import android.widget.TextView;
+import android.widget.FrameLayout;
+import android.widget.FrameLayout.LayoutParams;
 
+import java.io.File;
+import java.io.IOException;
+import java.lang.RuntimeException;
+import java.util.ArrayList;
+import java.util.List;
+
+import com.constantinnovationsinc.livemultimedia.activities.LiveMultimediaActivity;
 import com.constantinnovationsinc.livemultimedia.callbacks.FramesReadyCallback;
 import com.constantinnovationsinc.livemultimedia.cameras.JellyBeanCamera;
 import com.constantinnovationsinc.livemultimedia.encoders.AudioEncoder;
 import com.constantinnovationsinc.livemultimedia.encoders.GPUEncoder;
 import com.constantinnovationsinc.livemultimedia.recorders.AVRecorder;
+import com.constantinnovationsinc.livemultimedia.servers.VideoServer;
+import com.constantinnovationsinc.livemultimedia.utilities.DeviceNetwork;
+import com.constantinnovationsinc.livemultimedia.R;
 
 /****************************************************************************************************************
  * This class provides the camera app preview that Android requires if you going to operate the hardware camera
@@ -27,6 +38,7 @@ import com.constantinnovationsinc.livemultimedia.recorders.AVRecorder;
 public class VideoPreview extends TextureView implements SurfaceTextureListener, FramesReadyCallback {
     private static final String TAG = VideoPreview.class.getSimpleName();
     private static final String START_CAPTURE_FRAMES_SOUND = "StartCaptureSound";
+    private static final String START_ENCODERS_SOUND = "StartEncodersSound";
 
     private JellyBeanCamera mCamera = null;
     private AVRecorder mAVRecorder = null;
@@ -34,9 +46,13 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
     private Handler mCameraHandler = null;
     private Handler mVideoEncoderHandler = null;
     private Handler mAudioEncoderHandler = null;
+    private Handler mWebServerHandler = null;
+    private HandlerThread mWebServerThread = null;
     private HandlerThread mCameraThread = null;
     private HandlerThread mVideoEncoderThread = null;
     private HandlerThread mAudioEncodingThread = null;
+
+    private VideoServer mWebServer = null;
     private AudioEncoder mAudioEncoder = null;
     private int mRatioWidth = 0;
     private int mRatioHeight = 0;
@@ -77,18 +93,23 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
     }
 
     public void release() {
-       if (mCameraThread != null) {
+        if (mCameraThread != null) {
             mCameraThread.quitSafely();
-       }
+        }
         if (mVideoEncoderThread != null) {
             mVideoEncoderThread.quitSafely();
         }
         if ( mAudioEncodingThread != null) {
             mAudioEncodingThread.quitSafely();
         }
+        if (mWebServerThread != null) {
+            mWebServerThread.quitSafely();
+        }
+
         mCameraThread = null;
         mVideoEncoderHandler = null;
         mAudioEncoderHandler = null;
+        mWebServerThread = null;
     }
 
     /*************************************************************************************************
@@ -215,6 +236,7 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
             mCamera.setRecordingState(state);
         }
         if (state && mContext != null && mCamera != null) {
+            startWebServer();
             createAVRecorder();
             recordAudio();
         }
@@ -316,6 +338,7 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
                         mVideoEncoderThread.start();
                         mVideoEncoderHandler = new Handler(mVideoEncoderThread.getLooper());
                         mVideoEncoderHandler.post(mVideoEncoderThread);
+                        mAVRecorder.playSound(START_ENCODERS_SOUND);
                         mAVRecorder.getVideoEncoder().runGPUEncoder();
                     } catch (Exception e) {
                         Log.e(TAG, e.toString());
@@ -327,6 +350,47 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
         }
     }
 
+    public synchronized void startWebServer() {
+        try {
+            String host = DeviceNetwork.getIPAddress(true);
+            TextView text = new TextView(mContext);
+            text.setText(host + ":8080");
+            text.setX(0f);
+            text.setY(20.0f);
+            LiveMultimediaActivity activity  = (LiveMultimediaActivity)mContext;
+            if (activity != null) {
+                FrameLayout layout = (FrameLayout)activity.findViewById(R.id.fragment_container);
+                text.setLayoutParams(new LayoutParams(LayoutParams.WRAP_CONTENT,LayoutParams.WRAP_CONTENT));
+                layout.addView(text);
+            }
+            Thread.UncaughtExceptionHandler handler = new Thread.UncaughtExceptionHandler() {
+                public void uncaughtException(Thread th, Throwable ex) {
+                    Log.e(TAG, "Uncaught exception: in Start Web Server " + ex);
+                }
+            };
+            mWebServerThread  = new HandlerThread("WebServerThread");
+            mWebServerThread.setUncaughtExceptionHandler(handler);
+            mWebServerThread.start();
+            mWebServerHandler = new Handler(mWebServerThread.getLooper());
+            mWebServerHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        String host =  DeviceNetwork.getIPAddress(true);
+                        Log.w(TAG, "Device ip is " + host);
+                        int port = 8080;
+                        mWebServer = new VideoServer(host, port);
+                        mWebServer.start();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+        } catch (Exception e) {
+            Log.e(TAG, e.toString());
+        }
+    }
+
    public synchronized void playLazerSound() {
       if (mAVRecorder != null) {
           mAVRecorder.playSound(START_CAPTURE_FRAMES_SOUND);
@@ -334,5 +398,4 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
            Log.e(TAG, "mACRecorder is null in the VideoPreview");
       }
    }
-
 }

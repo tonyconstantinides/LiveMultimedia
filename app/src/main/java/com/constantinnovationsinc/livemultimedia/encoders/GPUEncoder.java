@@ -154,7 +154,6 @@ public class GPUEncoder implements Runnable{
     }
     public synchronized void runGPUEncoder() {
         try {
-            mRecorder.playSound(START_ENCODERS_SOUND);
             createVideoFormat();
             createVideoCodec();
             if ( mAudioFeatureActive ) {
@@ -363,6 +362,7 @@ public class GPUEncoder implements Runnable{
             try {
                 release();
                 mRecorder.playSound(MP4_FILE_WRITTEN_SOUND);
+                mRecorder.uploadFile();
                 Log.w(TAG, "--->All done!!!!!!!!");
             } catch (IllegalStateException ex) {
                 Log.e(TAG, ex.toString());
