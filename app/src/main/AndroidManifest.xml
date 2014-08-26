@@ -12,40 +12,36 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-  "
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" />
+
     <application
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
-        android:theme="@style/AppTheme" >
+        android:theme="@style/AppTheme"
+        android:name=".app.MultimediaApp">
         <activity
-            android:name=".activities.LiveMultimedia"
-            android:label="@string/app_name"
-            android:configChanges="orientation|keyboardHidden|screenSize">
+            android:name=".activities.LiveMultimediaActivity"
+            android:label="@string/title_activity_livemultimedia"
+            android:screenOrientation="landscape"
+            android:configChanges="keyboardHidden|screenSize"
+            android:parentActivityName=".activities.LiveMultimedia" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
         <activity
-            android:name=".activities.HWBroadcastingActivity"
-            android:label="@string/title_activity_hwbroadcasting"
-            android:configChanges="orientation|keyboardHidden|screenSize"
-            android:parentActivityName=".activities.LiveMultimedia" >
-            <meta-data
-                android:name="android.support.PARENT_ACTIVITY"
-                android:value="com.constantinnovationsinc.livemultimedia.activities.LiveMultimedia" />
-        </activity>
-        <activity
             android:name=".activities.CameraDetailActivity"
             android:label="@string/title_activity_camera_detail"
-            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:screenOrientation="landscape"
             android:parentActivityName=".activities.LiveMultimedia" >
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
                 android:value="com.constantinnovationsinc.livemultimedia.activities.LiveMultimedia" />
         </activity>
-
         <receiver
             android:name=".receivers.NetworkStateReceiver"
             android:enabled="true"

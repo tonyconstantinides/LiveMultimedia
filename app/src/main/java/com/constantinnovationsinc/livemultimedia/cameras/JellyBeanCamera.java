@@ -5,19 +5,19 @@ import android.content.res.Configuration;
 import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
-import android.os.MemoryFile;
 import android.util.Log;
 import java.io.IOException;
 import java.util.List;
 
-import com.constantinnovationsinc.livemultimedia.previews.FrameCatcher;
+import com.constantinnovationsinc.livemultimedia.callbacks.FramesReadyCallback;
+import com.constantinnovationsinc.livemultimedia.callbacks.FrameCatcher;
 import com.constantinnovationsinc.livemultimedia.previews.VideoPreview;
 import com.constantinnovationsinc.livemultimedia.utilities.SharedVideoMemory;
 
 /**
  * Created by constantinnovationsinc on 8/6/14.
  */
-public class JellyBeanCamera   {
+public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListener{
     private static final String TAG = JellyBeanCamera.class.getName();
     private int mBitRate  = -1;
     private int mEncodingWidth = -1;
@@ -28,29 +28,23 @@ public class JellyBeanCamera   {
     private Context mContext = null;
 
     private static final int ENCODING_WIDTH  = 1280;
-    private static final int ENCODING_HEIGHT = 960;
+    private static final int ENCODING_HEIGHT = 720;
     private static final int BITRATE = 6000000;
     private static final int NUM_CAMERA_PREVIEW_BUFFERS = 2;
     // movie length, in frames
-    private static final int NUM_FRAMES = 330;               // 9 seconds of video
+    private static final int NUM_FRAMES = 300;               // 9 seconds of video
     private static int FRAME_RATE = 30;
     private static final boolean DEBUG_SAVE_FILE = true;   // save copy of encoded movie
     private static final String DEBUG_FILE_NAME_BASE = "/sdcard/media/";
     private static final String  MIME_TYPE = "video/avc";
     private static final int IFRAME_INTERVAL = 10;          // 10 seconds between I-frames
-    private static final int TEST_Y = 120;                  // YUV values for colored rect
-    private static final int TEST_U = 160;
-    private static final int TEST_V = 200;
-    private static final int TEST_R0 = 0;                   // RGB equivalent of {0,0,0}
-    private static final int TEST_G0 = 136;
-    private static final int TEST_B0 = 0;
-    private static final int TEST_R1 = 236;                 // RGB equivalent of {120,160,200}
-    private static final int TEST_G1 = 50;
-    private static final int TEST_B1 = 186;
-
+    private static int mActiveCameraId = -1;
+    public  Boolean  mYV12ColorFormatSupported = false;
+    public Boolean   mNV21ColorFormatSupported = false;
     public  Camera mCamera = null;
     public  VideoPreview mVideoPreview = null;
     public FrameCatcher mFrameCatcher = null;
+
 
     /*********************************************************************
      * Constructor
@@ -70,6 +64,7 @@ public class JellyBeanCamera   {
         try {
             setParameters( ENCODING_WIDTH, ENCODING_HEIGHT, BITRATE);
             mCamera = Camera.open(Camera.CameraInfo.CAMERA_FACING_BACK);
+            setActiveCameraId(Camera.CameraInfo.CAMERA_FACING_BACK);
         } catch (Exception e) {
             Log.d(TAG, e.getMessage());
         }
@@ -85,10 +80,39 @@ public class JellyBeanCamera   {
         try {
             setParameters(ENCODING_WIDTH, ENCODING_HEIGHT, BITRATE);
             mCamera = Camera.open(Camera.CameraInfo.CAMERA_FACING_FRONT);
+            setActiveCameraId(Camera.CameraInfo.CAMERA_FACING_FRONT);
         } catch (Exception e) {
             Log.e(TAG, e.getMessage());
         }
         return mCamera;
+    }
+
+    public synchronized  int getNumberOfCameras() {
+        // Try to find a front-facing camera (e.g. for videoconferencing).
+        return  Camera.getNumberOfCameras();
+    }
+
+    public synchronized  Boolean isBackCamera() {
+        Boolean flag = false;
+        if (getActiveCameraId() == -1)
+            return false;
+        Camera.CameraInfo info = new Camera.CameraInfo();
+        Camera.getCameraInfo( getActiveCameraId(), info);
+        if (info.facing == info.CAMERA_FACING_BACK) {
+           flag = true;
+        }
+        return flag;
+    }
+
+    public synchronized  Boolean isFrontCamera() {
+        Boolean flag = false;
+        if (getActiveCameraId() == -1)
+            return false;
+        Camera.CameraInfo info =  new Camera.CameraInfo();
+        if (info.facing == info.CAMERA_FACING_FRONT) {
+            flag = true;
+        }
+        return flag;
     }
 
     /**********************************************************
@@ -96,12 +120,30 @@ public class JellyBeanCamera   {
      **********************************************************/
     public synchronized void  stopCamera() {
         Log.d(TAG, "Camera preview stopped and Camera released!");
-        if (mCamera == null) {
+        if (mCamera != null) {
             mCamera.stopPreview();
             mCamera.setPreviewCallbackWithBuffer(null);
             mCamera.release();
         }
         mCamera = null;
+    }
+
+    public synchronized Boolean isNV21ColorFormat() {
+       return mNV21ColorFormatSupported;
+    }
+
+    public synchronized Boolean isYV12ColorFormat() {
+        return mYV12ColorFormatSupported;
+    }
+
+    public synchronized String getImageFormat() {
+        String value = null;
+        if (mYV12ColorFormatSupported && mNV21ColorFormatSupported)  {
+            value = "YV12";
+        } else {
+            value = "UNKNOWN";
+        }
+        return value;
     }
 
     /**********************************************************
@@ -115,10 +157,20 @@ public class JellyBeanCamera   {
             return;
         }
         Camera.Parameters parameters = mCamera.getParameters();
-        // set the preview size
         adjustCameraBasedOnOrientation();
+        setRecordingHint(true, parameters);
+        // set the preview size
         queryPreviewSettings(parameters);
+        if (mYV12ColorFormatSupported) {
+            mImageFormat = ImageFormat.YV12;
+            parameters.setPreviewFormat(ImageFormat.YV12);
+        } else   if (mNV21ColorFormatSupported) {
+            mImageFormat = ImageFormat.NV21;
+            parameters.setPreviewFormat(ImageFormat.NV21);
+         }
         adjustPreviewSize(parameters);
+        // lock the exposure ans white balance to get a constant preview frame rate
+        lockExposureAndWhiteBalance(parameters);
         // set the frame rate and update the camera parameters
         setPreviewFrameRate(parameters, FRAME_RATE);
         mCamera.setParameters(parameters);
@@ -147,16 +199,26 @@ public class JellyBeanCamera   {
         }
     }
 
+    public void onFrameAvailable(SurfaceTexture surfaceTexture) {
+        Log.w(TAG, "Receiving frames from Textur!e");
+    }
+
     /**********************************************************
      * startVideoPreview( start the preview so you cna begin capturing frames
      * @return the preview started or not
      **********************************************************/
     public synchronized Boolean startVideoPreview() {
-        Camera.Parameters parameters = mCamera.getParameters();
-        if (parameters != null) {
-            parameters.setPreviewSize(ENCODING_WIDTH, ENCODING_HEIGHT);
-            mCamera.setParameters(parameters);
-            mCamera.startPreview();
+        try {
+            if (mCamera != null) {
+                Camera.Parameters parameters = mCamera.getParameters();
+                if (parameters != null) {
+                    parameters.setPreviewSize(ENCODING_WIDTH, ENCODING_HEIGHT);
+                    mCamera.setParameters(parameters);
+                    mCamera.startPreview();
+                }
+             }
+        } catch (Exception e) {
+            Log.e(TAG, e.getMessage());
         }
         return true;
     }
@@ -166,14 +228,17 @@ public class JellyBeanCamera   {
      *  releases the camera
      ******************************************************************/
     public synchronized void release() {
-        mCamera.addCallbackBuffer(null);
+        if (mCamera != null) {
+            mCamera.addCallbackBuffer(null);
+            mCamera.stopPreview();
+            mCamera.release();
+            mCamera = null;
+        }
         if (mFrameCatcher != null) {
             mFrameCatcher.setRecordingState(false);
             getSharedMemFile().clearMemory();
             mFrameCatcher = null;
         }
-        mCamera.stopPreview();
-        mCamera.release();
     }
 
     /************************************************************
@@ -181,17 +246,14 @@ public class JellyBeanCamera   {
      ************************************************************/
     public synchronized void adjustCameraBasedOnOrientation() {
         if (mContext.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
-            mCamera.setDisplayOrientation(90);
-        }
-        if (mContext.getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT) {
-            mCamera.setDisplayOrientation(0);
+            mCamera.setDisplayOrientation(270);
         }
     }
 
     /************************************************************
      * ensure the view is in landscape
      ************************************************************/
-    private static Camera.Size getBestPreviewSize(List<Camera.Size> previewSizes, int width, int height) {
+    private synchronized static Camera.Size getBestPreviewSize(List<Camera.Size> previewSizes, int width, int height) {
         Camera.Size result = null;
         if (width == 0 || height == 0) {
             Log.e(TAG, "Width or Height of preview surface is zero!");
@@ -238,12 +300,13 @@ public class JellyBeanCamera   {
             Log.e(TAG, "Camera object is null in setupVideoFrameCallback!");
             return;
         }
-        mFrameCatcher = new FrameCatcher( mPreviewWidth,  mPreviewHeight);
+        mFrameCatcher = new FrameCatcher( mPreviewWidth,
+                                          mPreviewHeight,
+                                          getImageFormat(),
+                                          (FramesReadyCallback)mVideoPreview);
         long bufferSize = 0;
         bufferSize = mPreviewWidth * mPreviewHeight  * ImageFormat.getBitsPerPixel(mImageFormat) / 8;
         long sizeWeShouldHave = (mPreviewWidth * 	mPreviewHeight  * 3 / 2);
-        Log.d(TAG, "BufferSize for videodata is: " +   bufferSize );
-        Log.d(TAG, "Buffer size we should have is: " +  sizeWeShouldHave  );
         mCamera.setPreviewCallbackWithBuffer(null);
         mCamera.setPreviewCallbackWithBuffer( mFrameCatcher );
         for (int i = 0; i < NUM_CAMERA_PREVIEW_BUFFERS; i++) {
@@ -273,6 +336,7 @@ public class JellyBeanCamera   {
             }
             if (format == ImageFormat.NV21)  {
                 Log.d(TAG, "This camera supports NV21 format in preview");
+                mNV21ColorFormatSupported = true;
             }
             if (format == ImageFormat.RGB_565)  {
                 Log.d(TAG, "This camera supports RGB_5645 format in preview");
@@ -285,17 +349,13 @@ public class JellyBeanCamera   {
             }
             if (format == ImageFormat.YV12)  {
                 Log.d(TAG, "This camera supports YV12 format in preview");
+                mYV12ColorFormatSupported = true;
             }
             if (format == ImageFormat.UNKNOWN)  {
                 Log.e(TAG, "This camera supports UNKNOWN format in preview");
             }
         }
 
-        mImageFormat = parameters.getPreviewFormat();
-        if (mImageFormat != ImageFormat.NV21) {
-            Log.e(TAG,  "Bad reported image format, wanted NV21 (" + ImageFormat.NV21 +
-                    ") got " + mImageFormat);
-        }
     }
 
     /*******************************************************************
@@ -305,7 +365,6 @@ public class JellyBeanCamera   {
     private synchronized void adjustPreviewSize(Camera.Parameters parameters) {
         mPreviewWidth = parameters.getPreviewSize().width;
         mPreviewHeight = parameters.getPictureSize().height;
-        Log.d(TAG, "Current preview width and height is: " + mPreviewWidth  + "," + mPreviewHeight);
         List<Camera.Size> sizes = parameters.getSupportedPreviewSizes();
         for (Camera.Size size : sizes) {
             Log.d(TAG , "Preview sizes supported by this camera is: " + size.width + "x" + size.height);
@@ -313,27 +372,17 @@ public class JellyBeanCamera   {
         Camera.Size bestSize = getBestPreviewSize(sizes,  (int)mPreviewWidth, (int)mPreviewHeight);
         mPreviewWidth   = bestSize.width;
         mPreviewHeight =  bestSize.height;
-
-        // if its more than Encoding width and height adjust it to the same
-        if (mPreviewWidth > mEncodingWidth) {
-           mPreviewWidth = mEncodingWidth;
-        }
-        if (mPreviewHeight > mEncodingHeight) {
-           mPreviewHeight = mEncodingHeight;
-        }
-
+        Log.w(TAG, "Recommend size of the preview window is: " + mPreviewWidth + "," + mPreviewHeight);
+        //force it to the hardcoded value
+        mPreviewWidth = mEncodingWidth;
+        mPreviewHeight = mEncodingHeight;
         Log.d(TAG, "New preview size is: " +  mPreviewWidth  + "x" + mPreviewHeight );
         parameters.setPreviewSize( (int)mPreviewWidth,  (int)mPreviewHeight);
     }
 
-    /*****************************************************************************************************
-     * Make sure the preview capture rate is consistent by locking the exposure and white balance rate
-     * @param parameters
-     * @param frameRate
-     ****************************************************************************************************/
-    private synchronized void setPreviewFrameRate(Camera.Parameters parameters, int frameRate) {
-        int actualMin = frameRate * 1000;
-        int actualMax = actualMin;
+
+
+    public synchronized void lockExposureAndWhiteBalance(Camera.Parameters parameters) {
         // try to lock the camera settings to get the frame rate we want
         if (parameters.isAutoExposureLockSupported()) {
             parameters.setAutoExposureLock(true);
@@ -341,6 +390,17 @@ public class JellyBeanCamera   {
         if (parameters.isAutoWhiteBalanceLockSupported()) {
             parameters.setAutoWhiteBalanceLock(true);
         }
+    }
+
+    /*****************************************************************************************************
+     * Make sure the preview capture rate is consistent by locking the exposure and white balance rate
+     * @param parameters
+     * @param frameRate
+     ****************************************************************************************************/
+    public synchronized void setPreviewFrameRate(Camera.Parameters parameters, int frameRate) {
+        int actualMin = frameRate * 1000;
+        int actualMax = actualMin;
+
         Log.d(TAG, "Setting PreviewWindow frame rate to: " + String.valueOf( actualMin) + ":" + String.valueOf(actualMax));
         parameters.setPreviewFpsRange( actualMin, actualMax ); // for 30 fps
     }
@@ -357,15 +417,59 @@ public class JellyBeanCamera   {
      * @return MemoryFile  which contain all captured video frames
      ****************************************************************/
     public synchronized SharedVideoMemory getSharedMemFile() {
-        return mFrameCatcher.getSharedMemFile();
+        SharedVideoMemory shared = null;
+        if (mFrameCatcher != null && mFrameCatcher.mRecording == true && mFrameCatcher.isSavingVideoFrames()) {
+            shared = mFrameCatcher.getSharedMemFile();
+        }
+        return shared;
     }
-
 
     public synchronized void setRecordingState(Boolean state) {
-        mFrameCatcher.setRecordingState(state);
+        if (mFrameCatcher != null) {
+            mFrameCatcher.setRecordingState(state);
+        }
     }
 
-     public Camera.Parameters getParameters() {
-        return mCamera.getParameters();
+    public synchronized Boolean getRecordingState() {
+       Boolean isRecording = false;
+        if (mFrameCatcher != null) {
+            isRecording = mFrameCatcher.getRecordingState();
+        }
+        return isRecording;
+    }
+
+     public synchronized  Camera.Parameters getParameters() {
+        Camera.Parameters parms = null;
+        if (mCamera != null) {
+            parms = mCamera.getParameters();
+        }
+        return parms;
+     }
+
+     public synchronized  int getActiveCameraId() {
+        return mActiveCameraId;
+     }
+
+     public synchronized Camera getRawCamera() {
+        return mCamera;
+     }
+
+     public synchronized void setActiveCameraId(int activeCam) {
+        if (activeCam == Camera.CameraInfo.CAMERA_FACING_BACK ||
+            activeCam == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+            mActiveCameraId = activeCam;
+        }  else {
+            Log.e(TAG, "Unknown Camera Id");
+        }
+     }
+
+    public synchronized void setRecordingHint(Boolean value, Camera.Parameters parms) {
+            parms.setRecordingHint(value);
+    }
+
+     public synchronized  void setOnFramesReadyCallBack(FramesReadyCallback callback) {
+        if (mFrameCatcher != null) {
+            mFrameCatcher.callback = callback;
+        }
      }
 }

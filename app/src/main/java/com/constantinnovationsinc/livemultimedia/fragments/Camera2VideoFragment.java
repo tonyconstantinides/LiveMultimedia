@@ -2,8 +2,9 @@ package com.constantinnovationsinc.livemultimedia.fragments;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.res.Configuration;
+import android.hardware.Camera;
 import android.support.v4.app.Fragment;
-import android.content.Context;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Gravity;
@@ -13,20 +14,20 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.Button;
 
-import java.io.File;
-
 import com.constantinnovationsinc.livemultimedia.previews.VideoPreview;
-
 import com.constantinnovationsinc.livemultimedia.R;
 
 public class Camera2VideoFragment extends Fragment implements View.OnClickListener {
-    private static final String TAG =  Camera2VideoFragment.class.getName();
-    private FrameLayout   mVideoPreviewFrame;
-    private VideoPreview  mVideoPreview;
+    private static final String TAG = Camera2VideoFragment.class.getName();
+    private FrameLayout mVideoPreviewFrame;
+    private VideoPreview mVideoPreview;
     private Button mButtonBackCamera;
     private Button mButtonFrontCamera;
     private Button mButtonRecordVideo;
+    private Button mButtonExit;
     private Boolean mRecording = false;
+    private int mEncodingWidth = 1280;
+    private int mEncodingHeight = 720;
 
     public static Camera2VideoFragment newInstance() {
         Camera2VideoFragment fragment = new Camera2VideoFragment();
@@ -49,47 +50,74 @@ public class Camera2VideoFragment extends Fragment implements View.OnClickListen
         mButtonBackCamera = (Button) view.findViewById(R.id.backcamera);
         mButtonFrontCamera = (Button) view.findViewById(R.id.frontcamera);
         mButtonRecordVideo = (Button) view.findViewById(R.id.recordvideo);
-
-        if (view != null &&  mVideoPreviewFrame != null) {
-           createVideoPreviewWindow();
+        mButtonExit        = (Button) view.findViewById(R.id.exit);
+        if (view != null && mVideoPreviewFrame != null) {
+            createVideoPreviewWindow(Camera.CameraInfo.CAMERA_FACING_BACK);
         }
-        return view;
+        if (mButtonRecordVideo != null) {
+            mButtonRecordVideo.setOnClickListener(this);
+        }
+        if (mButtonExit != null) {
+            mButtonExit.setOnClickListener(this);
+        }
+        if (mButtonBackCamera != null) {
+            mButtonBackCamera.setOnClickListener(this);
+        }
+        if (mButtonFrontCamera != null) {
+            mButtonFrontCamera.setOnClickListener(this);
+        }
+         return view;
+    }
+
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (mVideoPreview != null) {
+            mVideoPreview.prepare();
+        }
     }
 
     @Override
-    public void onViewCreated(final View view, Bundle savedInstanceState) {
-        mButtonRecordVideo.setOnClickListener(this);
-        mButtonBackCamera.setOnClickListener(this);
-        mButtonFrontCamera.setOnClickListener(this);
-        view.findViewById(R.id.info).setOnClickListener(this);
-     }
+    public void onPause() {
+        super.onPause();
+        if (mVideoPreview != null) {
+            mVideoPreview.halt();
+        }
+    }
 
     @Override
     public void onClick(View view) {
         switch (view.getId()) {
             case R.id.backcamera: {
-                    VideoPreview.mActiveCamera = VideoPreview.BACK_CAMERA;
-                    createNewVideoPreview();
-                }
-                break;
+                createNewVideoPreview(Camera.CameraInfo.CAMERA_FACING_BACK);
+            }
+            break;
             case R.id.frontcamera: {
-                    VideoPreview.mActiveCamera = VideoPreview.FRONT_CAMERA;
-                    createNewVideoPreview();
-                 }
-                break;
+                createNewVideoPreview(Camera.CameraInfo.CAMERA_FACING_FRONT);
+            }
+            break;
             case R.id.recordvideo: {
-                    mRecording = !mRecording;
-                    if (mRecording) {
-                        mButtonRecordVideo.setText("Stop");
-                    } else {
-                        mButtonRecordVideo.setText("Record");
-                    }
-                    mVideoPreview.setRecordingState(mRecording);
+                mRecording = !mRecording;
+                if (mRecording) {
+                    mButtonRecordVideo.setText("Stop");
+                } else {
+                    mButtonRecordVideo.setText("Record");
                 }
-                break;
+                mVideoPreview.setRecordingState(mRecording);
+            }
+            break;
+            case R.id.exit: {
+                destroyVideoPreviewWindow();
+                Activity activity = getActivity();
+                if (activity != null) {
+                    activity.finish();
+                }
+            }
+            break;
             case R.id.info: {
                 Activity activity = getActivity();
-                if (null != activity) {
+                if (activity != null) {
                     new AlertDialog.Builder(activity)
                             .setMessage(R.string.intro_message)
                             .setPositiveButton(android.R.string.ok, null)
@@ -100,33 +128,53 @@ public class Camera2VideoFragment extends Fragment implements View.OnClickListen
         }
     }
 
-    private File getVideoFile(Context context) {
-        return new File(context.getExternalFilesDir(null), "video.mp4");
-    }
-
-    private void  createNewVideoPreview() {
-        if ( mVideoPreviewFrame  != null && mVideoPreview != null ) {
+    private void createNewVideoPreview(int cameraId) {
+        if (mVideoPreviewFrame != null && mVideoPreview != null) {
             destroyVideoPreviewWindow();
         }
-        if ( mVideoPreviewFrame  != null && mVideoPreview == null ) {
-            createVideoPreviewWindow();
+        if (mVideoPreviewFrame != null && mVideoPreview == null) {
+            createVideoPreviewWindow(cameraId);
         }
     }
 
     public void destroyVideoPreviewWindow() {
-        mVideoPreview.halt();
-        mVideoPreviewFrame.removeAllViews();
-        mVideoPreview = null;
+        if (mVideoPreview != null) {
+            mVideoPreview.halt();
+            mVideoPreviewFrame.removeAllViews();
+            mVideoPreview = null;
+        }
     }
 
-    public void createVideoPreviewWindow() {
+    public void createVideoPreviewWindow(int activeCam) {
         Log.d(TAG, "Creating initial VideoPreview!");
-        mVideoPreview = new VideoPreview(getActivity().getApplicationContext());
-        mVideoPreview.prepare();
-        mVideoPreview.setLayoutParams(new FrameLayout.LayoutParams(
-                mVideoPreview.getPreviewSizeWidth(),
-                mVideoPreview.getPreviewSizeHeight(),
-                Gravity.CENTER));
+        previewWindowSetup(activeCam);
         mVideoPreviewFrame.addView(mVideoPreview);
     }
+
+    public void previewWindowSetup(int activeCam) {
+        // add surface listeners
+        mVideoPreview = new VideoPreview(getActivity());
+        mVideoPreview.prepare();
+        mVideoPreview.setActiveCamera(activeCam);
+        // set camera rotation
+        mVideoPreview.mRotation = getActivity().getWindowManager().getDefaultDisplay().getRotation();
+        // set layout
+        if (mVideoPreview.getPreviewSizeHeight() == mEncodingHeight &&
+                 mVideoPreview.getPreviewSizeWidth() == mEncodingWidth) {
+            mVideoPreview.setLayoutParams(new FrameLayout.LayoutParams(
+                    mVideoPreview.getPreviewSizeWidth(),
+                    mVideoPreview.getPreviewSizeHeight(),
+                    Gravity.CENTER));
+        } else {
+            mVideoPreview.setLayoutParams(new FrameLayout.LayoutParams(
+                    mEncodingWidth,
+                    mEncodingHeight,
+                    Gravity.CENTER));
+        }
+        if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT) {
+            mVideoPreview.setAspectRatio(16, 9);
+        }
+    }
+
+
 }

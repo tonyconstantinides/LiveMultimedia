@@ -22,16 +22,19 @@ public class SharedVideoMemory {
     private static String TAG = "MemoryFile";
     private int mFrameCount = 0;
     private int mProcessedFrames = 0;
+    private int mFrameSize = -1;
 
     /**
      * Allocates a new ashmem region. The region is initially not purgable.
      *
-     * @param name   optional name for the file (can be null).
-     * @param length of the memory file in bytes.
+     * @param name      optional name for the file (can be null).
+     * @param frameSize
+     * @param length    of the memory file in bytes.
      * @throws IOException if the memory file could not be created.
      */
-    public SharedVideoMemory(String name, int length) throws IOException {
+    public SharedVideoMemory(String name, int frameSize, int length) throws IOException {
         mSharedMemFile = new MemoryFile(name, length);
+        mFrameSize = frameSize;
     }
 
     /**
@@ -46,11 +49,19 @@ public class SharedVideoMemory {
         return (mSharedMemFile.length() == 0) ? true : false;
     }
 
-    public int getFrameCoount() {
+    public int getFrameCount() {
         return mFrameCount;
     }
 
-    public synchronized  void lockMemory() {
+    public int getProcessFramesCount() {
+        return mProcessedFrames;
+    }
+
+    public int getFrameSize() {
+        return mFrameSize;
+    }
+
+    public synchronized void lockMemory() {
         try {
             if (mSharedMemFile != null) {
                 mSharedMemFile.allowPurging(false);
@@ -58,9 +69,9 @@ public class SharedVideoMemory {
         } catch (IOException e) {
             Log.e(TAG, e.getMessage());
         }
-   }
+    }
 
-    public synchronized  void clearMemory() {
+    public synchronized void clearMemory() {
         try {
             if (mSharedMemFile != null) {
                 mSharedMemFile.allowPurging(true);
@@ -70,17 +81,28 @@ public class SharedVideoMemory {
         }
     }
 
-    public boolean getNextFrame(byte[] buffer, int count) {
+    public boolean getNextFrame(int frameNum, byte[] buffer) {
         Boolean mFlag = false;
         if (buffer == null) {
             Log.e(TAG, "Cannot return video frame into a null buffer that was passed to getNextFrame()");
             return mFlag;
         }
+        if (frameNum == mFrameCount) {
+            Log.e(TAG, "You have now read to the end of sharedMemory file");
+            return mFlag;
+        }
         try {
-            int readBytes = mSharedMemFile.readBytes(buffer, mProcessedFrames, 0, count);
-            if (readBytes == count) {
+            Log.d(TAG, "About to read from shared file for frame:framesize is: " + frameNum + "," + mFrameSize);
+            int readBytes = mSharedMemFile.readBytes(buffer, frameNum * mFrameSize, 0, mFrameSize);
+            if (readBytes == mFrameSize) {
                 mFlag = true;
+                mProcessedFrames++;
+            } else {
+                Log.e(TAG, "bytes read are mot the same as frame size!");
             }
+        } catch (IndexOutOfBoundsException e) {
+            Log.e(TAG, e.getMessage());
+            mFlag = false;
         } catch (IOException e) {
             Log.e(TAG, e.getMessage());
             mFlag = false;
@@ -102,10 +124,13 @@ public class SharedVideoMemory {
             throws IOException {
         try {
             mSharedMemFile.writeBytes(buffer, srcOffset, destOffset, count);
+            mFrameCount++;
         } catch (IOException e) {
             Log.e(TAG, e.getMessage());
         }
-        mFrameCount++;
     }
 
+    public Boolean isLastFrame() {
+        return (mFrameCount == mProcessedFrames);
+    }
 }

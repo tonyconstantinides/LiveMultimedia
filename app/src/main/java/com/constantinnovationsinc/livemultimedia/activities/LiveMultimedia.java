@@ -1,19 +1,11 @@
 package com.constantinnovationsinc.livemultimedia.activities;
 
 import android.app.Activity;
-import android.app.ActionBar;
-import android.app.Fragment;
 import android.content.Intent;
 import android.os.Bundle;
-import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.View;
-import android.view.ViewGroup;
-import android.os.Build;
 
-
-import com.constantinnovationsinc.livemultimedia.fragments.Camera2VideoFragment;
 
 import com.constantinnovationsinc.livemultimedia.R;
 
@@ -24,7 +16,7 @@ public class LiveMultimedia extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_live_multimedia);
-        Intent intent = new Intent(this, HWBroadcastingActivity.class);
+        Intent intent = new Intent(this, LiveMultimediaActivity.class);
         startActivity(intent);
     }
 

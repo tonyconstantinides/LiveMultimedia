@@ -6,7 +6,7 @@
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
     android:paddingBottom="@dimen/activity_vertical_margin"
-    tools:context="com.constantinnovationsinc.livemultimedia.activities.HWBroadcastingActivity">
+    tools:context="com.constantinnovationsinc.livemultimedia.activities.LiveMultimediaActivity">
     <FrameLayout
         android:id="@+id/fragment_container"
         android:layout_width="match_parent"

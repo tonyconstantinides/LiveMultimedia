@@ -3,12 +3,12 @@
 
     <string name="hello_world">Hello world!</string>
     <string name="action_settings">Settings</string>
-    <string name="title_activity_hwbroadcasting">HWBroadcastingActivity</string>
+    <string name="title_activity_livemultimedia">LiveMultimedia</string>
     <string name="front">Front Cam</string>string>
     <string name="back">Back Cam</string>string>
     <string name="record">Record</string>
     <string name="stop">Stop</string>
-
+    <string name="exit">Exit</string>
     <string name="description_info">Info</string>
     <string name="title_activity_camera_detail">CameraDetailActivity</string>
 

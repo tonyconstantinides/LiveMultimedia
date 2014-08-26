@@ -24,13 +24,6 @@ public class NetworkStateReceiver extends BroadcastReceiver {
             if (ni != null && ni.isAvailable()) {
                 Log.i("app", "Network " + ni.getTypeName() + " is avaialable");
             }
-            NetworkInfo.DetailedState state = ni.getDetailedState();
-            if (state.compareTo(NetworkInfo.DetailedState.BLOCKED) == 0) {
-                Log.d("app", "Network is bloacked");
-            }
-            if(intent.getBooleanExtra(ConnectivityManager.EXTRA_NO_CONNECTIVITY,Boolean.FALSE)) {
-                Log.d("app", "There's no network connectivity");
-            }
          }
     }
 }
