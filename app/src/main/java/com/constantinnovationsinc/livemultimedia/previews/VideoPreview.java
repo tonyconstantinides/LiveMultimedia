@@ -2,9 +2,11 @@ package com.constantinnovationsinc.livemultimedia.previews;
 
 import android.content.Context;
 import android.content.res.Configuration;
+import android.os.Looper;
 import android.os.Process;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Message;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.graphics.SurfaceTexture;
@@ -25,8 +27,14 @@ import com.constantinnovationsinc.livemultimedia.callbacks.FramesReadyCallback;
 import com.constantinnovationsinc.livemultimedia.cameras.JellyBeanCamera;
 import com.constantinnovationsinc.livemultimedia.encoders.AudioEncoder;
 import com.constantinnovationsinc.livemultimedia.encoders.GPUEncoder;
+import com.constantinnovationsinc.livemultimedia.handlers.CameraHandler;
+import com.constantinnovationsinc.livemultimedia.handlers.VideoEncoderHandler;
+import com.constantinnovationsinc.livemultimedia.handlers.AudioEncoderHandler;
 import com.constantinnovationsinc.livemultimedia.recorders.AVRecorder;
 import com.constantinnovationsinc.livemultimedia.servers.VideoServer;
+import com.constantinnovationsinc.livemultimedia.threads.AudioEncoderThread;
+import com.constantinnovationsinc.livemultimedia.threads.CameraThread;
+import com.constantinnovationsinc.livemultimedia.threads.VideoEncoderThread;
 import com.constantinnovationsinc.livemultimedia.utilities.DeviceNetwork;
 import com.constantinnovationsinc.livemultimedia.R;
 
@@ -43,23 +51,23 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
     private JellyBeanCamera mCamera = null;
     private AVRecorder mAVRecorder = null;
     private Context mContext = null;
-    private Handler mCameraHandler = null;
-    private Handler mVideoEncoderHandler = null;
-    private Handler mAudioEncoderHandler = null;
+    private CameraHandler mCameraHandler = null;
+    private VideoEncoderHandler mVideoEncoderHandler = null;
+    private AudioEncoderHandler mAudioEncoderHandler = null;
     private Handler mWebServerHandler = null;
     private HandlerThread mWebServerThread = null;
-    private HandlerThread mCameraThread = null;
-    private HandlerThread mVideoEncoderThread = null;
-    private HandlerThread mAudioEncodingThread = null;
+    private CameraThread mCameraThread = null;
+    private VideoEncoderThread mVideoEncoderThread = null;
+    private AudioEncoderThread mAudioEncodingThread = null;
 
     private VideoServer mWebServer = null;
     private AudioEncoder mAudioEncoder = null;
     private int mRatioWidth = 0;
     private int mRatioHeight = 0;
-    public  int mActiveCameraId = -1;
-    public  int mRotation = -1;
+
+    public int mRotation = -1;
     public Boolean recordStarted = false;
-    public  FramesReadyCallback  mVideoFramesReadylistener = null;
+    public FramesReadyCallback mVideoFramesReadylistener = null;
 
     public VideoPreview(Context context) {
         super(context);
@@ -81,7 +89,7 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
         mCamera = new JellyBeanCamera(mContext, this);
         setSurfaceTextureListener(this);
         setFrameReadyListener(this);
-   }
+    }
 
     public void halt() {
         Log.d(TAG, "Camera released and SurfaceTextureListener is not null!");
@@ -93,33 +101,40 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
     }
 
     public void release() {
+        // clear handlers
+        mWebServerHandler = null;
+        mVideoEncoderHandler = null;
+        mAudioEncoderHandler = null;
+        mCameraHandler = null;
+        // stop the threads
         if (mCameraThread != null) {
             mCameraThread.quitSafely();
         }
         if (mVideoEncoderThread != null) {
             mVideoEncoderThread.quitSafely();
         }
-        if ( mAudioEncodingThread != null) {
+        if (mAudioEncodingThread != null) {
             mAudioEncodingThread.quitSafely();
         }
         if (mWebServerThread != null) {
             mWebServerThread.quitSafely();
         }
-
-        mCameraThread = null;
-        mVideoEncoderHandler = null;
-        mAudioEncoderHandler = null;
+        // clear threads
         mWebServerThread = null;
+        mVideoEncoderHandler = null;
+        mWebServerHandler = null;
+        mCameraThread = null;
     }
 
-    /*************************************************************************************************
+    /**
+     * **********************************************************************************************
      * Sets the aspect ratio for this view. The size of the view will be measured based on the ratio
      * calculated from the parameters. Note that the actual sizes of parameters don't matter, that
      * is, calling setAspectRatio(2, 3) and setAspectRatio(4, 6) make the same result.
      *
      * @param width  Relative horizontal size
      * @param height Relative vertical size
-     ************************************************************************************************/
+     ***********************************************************************************************/
     public void setAspectRatio(int width, int height) {
         if (width < 0 || height < 0) {
             throw new IllegalArgumentException("Size cannot be negative.");
@@ -140,64 +155,31 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
             if (width < (height * (mRatioWidth / mRatioHeight))) {
                 setMeasuredDimension(width, width * mRatioHeight / mRatioWidth);
             } else {
-               setMeasuredDimension(height * mRatioWidth / mRatioHeight, height);
+                setMeasuredDimension(height * mRatioWidth / mRatioHeight, height);
             }
         }
     }
 
-    /*********************************************************************************************
-    * As the surface is being created the camera preview size can be set
-    * This may be called multiple times during the app as the user starts and stops the camera
-    * Each time a new surface may be created and a new preview window set
-    ***********************************************************************************************/
+    /**
+     * ******************************************************************************************
+     * As the surface is being created the camera preview size can be set
+     * This may be called multiple times during the app as the user starts and stops the camera
+     * Each time a new surface may be created and a new preview window set
+     * *********************************************************************************************
+     */
     @Override
     public void onSurfaceTextureAvailable(SurfaceTexture image,
                                           int arg1,
                                           int arg2) {
         Log.d(TAG, "SurfaceTexture now Available!");
         final SurfaceTexture texture = image;
-        if (mCameraThread == null) {
-            mCameraThread = new HandlerThread("camThread");
-            mCameraThread.start();
-            mCameraHandler = new Handler(mCameraThread.getLooper());
-        }
-        mCameraHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                Log.d(TAG, "CameraThread Running!");
-                if (mCamera == null) {
-                    Log.e(TAG, "Camera object is null, leaving...");
-                    return;
-                 }
-                int camCount = mCamera.getNumberOfCameras();
-                if (camCount == 0) {
-                    Log.e(TAG, "No Cameras found, exiting!");
-                    throw new RuntimeException("Unable to open camera");
-                }
-                if (mActiveCameraId != -1) {
-                    mCamera.setActiveCameraId(mActiveCameraId);
-                }
-                if (mActiveCameraId == 0) {
-                    mCamera.startBackCamera();
-                } else if (mActiveCameraId == 1) {
-                    mCamera.startFrontCamera();
-                } else {
-                        Log.e(TAG, "Serious error, active cam not set!");
-                        Thread.currentThread().interrupt();
-                }
-                mCamera.setupPreviewWindow();
-                mCamera.setupVideoCaptureMethod();
-                mCamera.setPreviewTexture(texture);
-                Log.d(TAG, "Starting the camera preview..");
-                mCamera.startVideoPreview();
-            }
-        });
-
+        createCameraThread( texture );
         setAlpha(1.0f);
         if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
             setRotation(90.0f);
         }
     }
+
 
     @Override
     public boolean onSurfaceTextureDestroyed(SurfaceTexture arg0) {
@@ -217,18 +199,21 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
     }
 
     public int getPreviewSizeWidth() {
-       return (int)mCamera.getPreviewSizeWidth();
+        return (int) mCamera.getPreviewSizeWidth();
     }
+
     public int getPreviewSizeHeight() {
-       return (int)mCamera.getPreviewSizeHeight();
+        return (int) mCamera.getPreviewSizeHeight();
     }
 
     public void setActiveCamera(int activeCam) {
-        mActiveCameraId = activeCam;
+        if (mCameraThread != null && mCameraThread.isAlive()) {
+            mCameraThread.setActiveCameraId(activeCam);
+        }
     }
 
     public void setFrameReadyListener(FramesReadyCallback listener) {
-        mVideoFramesReadylistener  = listener;
+        mVideoFramesReadylistener = listener;
     }
 
     public synchronized void setRecordingState(Boolean state) {
@@ -253,17 +238,38 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
         }
         if (mCamera.mFrameCatcher.mRecording) {
             mAVRecorder = new AVRecorder(mContext);
-            mAVRecorder.setSize((int)mCamera.getPreviewSizeWidth(), (int)mCamera.getPreviewSizeHeight());
-            mAVRecorder.setEncodingWidth((int)mCamera.getPreviewSizeWidth());
+            mAVRecorder.setSize((int) mCamera.getPreviewSizeWidth(), (int) mCamera.getPreviewSizeHeight());
+            mAVRecorder.setEncodingWidth((int) mCamera.getPreviewSizeWidth());
             mAVRecorder.setEncodingHeight((int) mCamera.getPreviewSizeHeight());
             mAVRecorder.prepare();
             mCamera.setOnFramesReadyCallBack(this);
         }
-      }
+    }
+
+    public synchronized void createCameraThread( SurfaceTexture texture ) {
+        if (mCameraThread != null) {
+            mCamera.release();
+            mCameraThread.quitSafely();
+            mCameraThread = null;
+            mCameraHandler = null;
+            mCamera = null;
+        }
+        if (mCameraThread == null) {
+            // recreate the camera object
+            if (mCamera == null) {
+                mCamera = new JellyBeanCamera(mContext, this);
+            }
+            mCameraThread = new CameraThread("CameraThread");
+            mCameraThread.setCamera(mCamera);
+            mCameraThread.setCameraTexture(texture);
+            mCameraThread.start();
+            mCameraHandler = new CameraHandler(mCameraThread.getLooper());
+        }
+    }
 
     public synchronized void recordAudio() {
         // record audio on the same threade you encode
-       startAudioEncoder();
+        startAudioEncoder();
     }
 
     public synchronized void startAudioEncoder() {
@@ -277,11 +283,10 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
                                 Log.e(TAG, "Uncaught exception: in Audio Encoder " + ex);
                             }
                         };
-                        mAudioEncodingThread = new HandlerThread("AudioEncoderThread", Process.THREAD_PRIORITY_AUDIO);
+                        mAudioEncodingThread = new AudioEncoderThread("AudioEncoderThread");
                         mAudioEncodingThread.setUncaughtExceptionHandler(handler);
                         mAudioEncodingThread.start();
-                        mAudioEncoderHandler = new Handler(mAudioEncodingThread.getLooper());
-                        mAudioEncoderHandler.post(mAudioEncoder);
+                        mAudioEncoderHandler = new AudioEncoderHandler(mAudioEncodingThread.getLooper());
                     }
                 }
             }
@@ -301,7 +306,7 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
                     if (mAudioEncodingThread.isAlive()) {
                         if (mAudioEncoder != null) {
                             // just kill the thread;
-                            //mAudioEncodingThread.quitSafely();
+                            mAudioEncodingThread.quitSafely();
                         } else {
                             Log.e(TAG, "Audio Encoder is null in stopAudioRecording!");
                         }
@@ -317,36 +322,41 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
         }
     }
 
-    public synchronized void startVideoEncoder() {
-        stopAudioRecording();
+    public synchronized void startVideoEncoder() throws IllegalArgumentException {
+        if (mCamera == null) {
+            throw new IllegalStateException("Camera is null in startVideoEncoder()");
+        }
+        if ( mAVRecorder == null) {
+            throw new IllegalStateException("AVRecorder is null in startVideoEncoder()");
+        }
+        GPUEncoder encoder = mAVRecorder.getVideoEncoder();
+        if (encoder == null) {
+            throw new IllegalStateException("GPUEncoder is null in startVideoEncoder()");
+        }
+        if (mVideoEncoderHandler != null && mVideoEncoderHandler != null && mVideoEncoderThread != null && mVideoEncoderThread.isAlive()) {
+            throw new IllegalStateException("Video Encoding process is still ongoing in startVideoEncoder");
+        }
         // passed the shared memory reference from the catcher to the recorder
-        if (mAVRecorder.setSharedMemFile(mCamera.mFrameCatcher.getSharedMemFile())) {
-            GPUEncoder encoder = mAVRecorder.getVideoEncoder();
-            if (encoder != null) {
-                if (mVideoEncoderHandler == null) {
-                    try {
-                        Thread.UncaughtExceptionHandler handler = new Thread.UncaughtExceptionHandler() {
-                            public void uncaughtException(Thread th, Throwable ex) {
-                                Log.e(TAG, "Uncaught exception: in Video Encoder " + ex);
-                            }
-                        };
-                        mVideoEncoderThread = new HandlerThread("GPUEncoderThread");
-                        mVideoEncoderThread.setUncaughtExceptionHandler(handler);
-                        if (mAVRecorder.getVideoEncoder() != null && mCamera != null) {
-                            mAVRecorder.getVideoEncoder().setSharedVideoFramesStore(mCamera.mFrameCatcher.getSharedMemFile());
-                        }
-                        mVideoEncoderThread.start();
-                        mVideoEncoderHandler = new Handler(mVideoEncoderThread.getLooper());
-                        mVideoEncoderHandler.post(mVideoEncoderThread);
-                        mAVRecorder.playSound(START_ENCODERS_SOUND);
-                        mAVRecorder.getVideoEncoder().runGPUEncoder();
-                    } catch (Exception e) {
-                        Log.e(TAG, e.toString());
-                    }
+        mAVRecorder.setSharedMemFile(mCamera.mFrameCatcher.getSharedMemFile());
+        stopAudioRecording();
+
+        try {
+            Thread.UncaughtExceptionHandler handler = new Thread.UncaughtExceptionHandler() {
+                public void uncaughtException(Thread th, Throwable ex) {
+                    Log.e(TAG, "Uncaught exception: in Video Encoder " + ex);
                 }
+            };
+            mVideoEncoderThread = new VideoEncoderThread("GPUEncoderThread");
+            mVideoEncoderThread.setUncaughtExceptionHandler(handler);
+            if (mAVRecorder.getVideoEncoder() != null && mCamera != null) {
+                mAVRecorder.getVideoEncoder().setSharedVideoFramesStore(mCamera.mFrameCatcher.getSharedMemFile());
             }
-        } else {
-            Log.e(TAG, "Unable to start AVRecorder because  SharedMemoryFile from catcher is null in AVRecorder!");
+            mVideoEncoderThread.start();
+            mVideoEncoderHandler = new VideoEncoderHandler(mVideoEncoderThread.getLooper());
+            mAVRecorder.playSound(START_ENCODERS_SOUND);
+            mAVRecorder.getVideoEncoder().runGPUEncoder();
+        } catch (Exception e) {
+            Log.e(TAG, e.toString());
         }
     }
 
@@ -357,10 +367,10 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
             text.setText(host + ":8080");
             text.setX(0f);
             text.setY(20.0f);
-            LiveMultimediaActivity activity  = (LiveMultimediaActivity)mContext;
+            LiveMultimediaActivity activity = (LiveMultimediaActivity) mContext;
             if (activity != null) {
-                FrameLayout layout = (FrameLayout)activity.findViewById(R.id.fragment_container);
-                text.setLayoutParams(new LayoutParams(LayoutParams.WRAP_CONTENT,LayoutParams.WRAP_CONTENT));
+                FrameLayout layout = (FrameLayout) activity.findViewById(R.id.fragment_container);
+                text.setLayoutParams(new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
                 layout.addView(text);
             }
             Thread.UncaughtExceptionHandler handler = new Thread.UncaughtExceptionHandler() {
@@ -368,7 +378,7 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
                     Log.e(TAG, "Uncaught exception: in Start Web Server " + ex);
                 }
             };
-            mWebServerThread  = new HandlerThread("WebServerThread");
+            mWebServerThread = new HandlerThread("WebServerThread");
             mWebServerThread.setUncaughtExceptionHandler(handler);
             mWebServerThread.start();
             mWebServerHandler = new Handler(mWebServerThread.getLooper());
@@ -376,7 +386,7 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
                 @Override
                 public void run() {
                     try {
-                        String host =  DeviceNetwork.getIPAddress(true);
+                        String host = DeviceNetwork.getIPAddress(true);
                         Log.w(TAG, "Device ip is " + host);
                         int port = 8080;
                         mWebServer = new VideoServer(host, port);
@@ -391,11 +401,13 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
         }
     }
 
-   public synchronized void playLazerSound() {
-      if (mAVRecorder != null) {
-          mAVRecorder.playSound(START_CAPTURE_FRAMES_SOUND);
-      } else {
-           Log.e(TAG, "mACRecorder is null in the VideoPreview");
-      }
-   }
+    public synchronized void playLazerSound() {
+        if (mAVRecorder != null) {
+            mAVRecorder.playSound(START_CAPTURE_FRAMES_SOUND);
+        } else {
+            Log.e(TAG, "mACRecorder is null in the VideoPreview");
+        }
+    }
+
+
 }

@@ -19,6 +19,15 @@ import com.constantinnovationsinc.livemultimedia.utilities.SharedVideoMemory;
  */
 public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListener{
     private static final String TAG = JellyBeanCamera.class.getName();
+    private static final String NULL_IN_START_FRONT_CAMERA   = "Camera is Null in startFrontCamera()";
+    private static final String NULL_IN_START_BACK_CAMERA    = "Camera is Null in startBackCamera()";
+    private static final String NULL_IN_GET_PARAMETERS       = "Camera object is Null in getParameters()";
+    private static final String NULL_IN_GET_SHARED_MEM_FILE  = "FramesReadyCallback is Null in getSharedMemFile()";
+    private static final String NULL_IN_SET_RECORDING_STATE  = "FramesReadyCallback is Null in setRecordingState()";
+    private static final String NULL_IN_GET_RECORDING_STATE  = "FramesReadyCallback is Null in getRecordingState()";
+    private static final String NULL_IN_SET_RECORD_HINT      = "Camera.Parameters is Null in SetRecordHint()";
+    private static final String ARGUMENT_NULL_IN_SET_ONFRAMES_READY_CALLBACK = "Passing  Null for a callback in setOnFramesReadyCallBack()";
+    private static final String NULL_IN_SET_ONFRAMES_READY_CALLBACK = "FramesReadyCallback is Null in setOnFramesReadyCallBack()";
     private int mBitRate  = -1;
     private int mEncodingWidth = -1;
     private int mEncodingHeight = -1;
@@ -59,15 +68,14 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      * startBackCamera
      * @return camera - active camera
      *********************************************************************/
-    public synchronized Camera startBackCamera() {
+    public synchronized Camera startBackCamera() throws IllegalStateException{
         Log.d(TAG, "Camera about to be opened in a thread!");
-        try {
-            setParameters( ENCODING_WIDTH, ENCODING_HEIGHT, BITRATE);
-            mCamera = Camera.open(Camera.CameraInfo.CAMERA_FACING_BACK);
-            setActiveCameraId(Camera.CameraInfo.CAMERA_FACING_BACK);
-        } catch (Exception e) {
-            Log.d(TAG, e.getMessage());
+        if (mCamera == null) {
+            throw new IllegalStateException( NULL_IN_START_BACK_CAMERA );
         }
+        setParameters( ENCODING_WIDTH, ENCODING_HEIGHT, BITRATE);
+        mCamera = Camera.open(Camera.CameraInfo.CAMERA_FACING_BACK);
+        setActiveCameraId(Camera.CameraInfo.CAMERA_FACING_BACK);
         return mCamera;
     }
 
@@ -75,23 +83,30 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      * startFrontCamera
      * @return camera - active camera
      *********************************************************************/
-    public synchronized Camera startFrontCamera() {
+    public synchronized Camera startFrontCamera() throws IllegalStateException{
         Log.d(TAG, "Camera about to be opened in a thread!");
-        try {
-            setParameters(ENCODING_WIDTH, ENCODING_HEIGHT, BITRATE);
-            mCamera = Camera.open(Camera.CameraInfo.CAMERA_FACING_FRONT);
-            setActiveCameraId(Camera.CameraInfo.CAMERA_FACING_FRONT);
-        } catch (Exception e) {
-            Log.e(TAG, e.getMessage());
+        if (mCamera == null) {
+            throw new IllegalStateException( NULL_IN_START_FRONT_CAMERA );
         }
+        setParameters(ENCODING_WIDTH, ENCODING_HEIGHT, BITRATE);
+        mCamera = Camera.open(Camera.CameraInfo.CAMERA_FACING_FRONT);
+        setActiveCameraId(Camera.CameraInfo.CAMERA_FACING_FRONT);
         return mCamera;
     }
 
+    /*********************************************************************
+     * getNumberOfCameras()
+     * @return int - number of cameras on the device
+     *********************************************************************/
     public synchronized  int getNumberOfCameras() {
         // Try to find a front-facing camera (e.g. for videoconferencing).
         return  Camera.getNumberOfCameras();
     }
 
+    /*********************************************************************
+     * isBackCamera()
+     * @return Boolean - Is the active selected camera the back camera
+     *********************************************************************/
     public synchronized  Boolean isBackCamera() {
         Boolean flag = false;
         if (getActiveCameraId() == -1)
@@ -104,6 +119,10 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
         return flag;
     }
 
+    /*********************************************************************
+     * isFrontCamera()
+     * @return Boolean - Is the active selected camera the front camera
+     *********************************************************************/
     public synchronized  Boolean isFrontCamera() {
         Boolean flag = false;
         if (getActiveCameraId() == -1)
@@ -116,7 +135,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
     }
 
     /**********************************************************
-     *  stopCamera - 
+     *  stopCamera - Stops the preview and the capture process
      **********************************************************/
     public synchronized void  stopCamera() {
         Log.d(TAG, "Camera preview stopped and Camera released!");
@@ -128,14 +147,26 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
         mCamera = null;
     }
 
+    /*****************************************************************
+     *  isNV21ColorFormat - IS the format NV21
+     *  @return Boolean - Is it NV21 Colorformat in the preview window
+     *****************************************************************/
     public synchronized Boolean isNV21ColorFormat() {
        return mNV21ColorFormatSupported;
     }
 
+    /*****************************************************************
+     *  isYV12ColorFormat - Is the format NV21
+     *  @return Boolean - Is it YV12 Colorformat in the preview window
+     *****************************************************************/
     public synchronized Boolean isYV12ColorFormat() {
         return mYV12ColorFormatSupported;
     }
 
+    /*****************************************************************
+     *  getImageFormat - What is the the imageFormat
+     *  @return String - Get Image Format
+     *****************************************************************/
     public synchronized String getImageFormat() {
         String value = null;
         if (mYV12ColorFormatSupported && mNV21ColorFormatSupported)  {
@@ -150,30 +181,35 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      *  setupPreviewWindow  encapsulates the current video
      * frame capture method
      **********************************************************/
-    public synchronized void setupPreviewWindow() {
+    public synchronized void setupPreviewWindow() throws IllegalStateException{
         Log.d(TAG, "Lets setup the preview Window");
-        if (mCamera == null) {
-            Log.e(TAG, "Camera object is Null in setupPreviewWindow");
-            return;
+        try {
+            if (mCamera == null) {
+                throw new IllegalStateException("Camera object is Null in setupPreviewWindow");
+            }
+            Camera.Parameters parameters = mCamera.getParameters();
+            adjustCameraBasedOnOrientation();
+            setRecordingHint(true, parameters);
+            // set the preview size
+            queryPreviewSettings(parameters);
+            if (mYV12ColorFormatSupported) {
+                mImageFormat = ImageFormat.YV12;
+                parameters.setPreviewFormat(ImageFormat.YV12);
+            } else   if (mNV21ColorFormatSupported) {
+                mImageFormat = ImageFormat.NV21;
+                parameters.setPreviewFormat(ImageFormat.NV21);
+             }
+            adjustPreviewSize(parameters);
+            // lock the exposure ans white balance to get a constant preview frame rate
+            lockExposureAndWhiteBalance(parameters);
+            // set the frame rate and update the camera parameters
+            setPreviewFrameRate(parameters, FRAME_RATE);
+            mCamera.setParameters(parameters);
+        } catch (IllegalArgumentException e) {
+           Log.e(TAG,  e.toString());
+        } catch (IllegalStateException e) {
+            Log.e(TAG,  e.toString());
         }
-        Camera.Parameters parameters = mCamera.getParameters();
-        adjustCameraBasedOnOrientation();
-        setRecordingHint(true, parameters);
-        // set the preview size
-        queryPreviewSettings(parameters);
-        if (mYV12ColorFormatSupported) {
-            mImageFormat = ImageFormat.YV12;
-            parameters.setPreviewFormat(ImageFormat.YV12);
-        } else   if (mNV21ColorFormatSupported) {
-            mImageFormat = ImageFormat.NV21;
-            parameters.setPreviewFormat(ImageFormat.NV21);
-         }
-        adjustPreviewSize(parameters);
-        // lock the exposure ans white balance to get a constant preview frame rate
-        lockExposureAndWhiteBalance(parameters);
-        // set the frame rate and update the camera parameters
-        setPreviewFrameRate(parameters, FRAME_RATE);
-        mCamera.setParameters(parameters);
     }
 
     /**********************************************************
@@ -189,14 +225,15 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      * setPreviewTexture same as the camera pi but with error handling
      * @param surface surfaceTexture of the preview window
      **********************************************************/
-    public  synchronized void setPreviewTexture( SurfaceTexture surface) {
-        if (surface != null && mCamera != null) {
-            try {
-                mCamera.setPreviewTexture( surface );
-            } catch (IOException e) {
-                Log.e(TAG, e.getLocalizedMessage());
-            }
+    public  synchronized void setPreviewTexture( SurfaceTexture surface) throws IllegalArgumentException, IllegalStateException, IOException {
+        if (surface == null) {
+            throw new IllegalArgumentException("SurfaceTexture is Null in setPreviewTexture()");
         }
+        if (mCamera == null) {
+            throw new IllegalStateException("Camera object is Null in  setPreviewTexture()");
+        }
+        // this call throw an IOException
+        mCamera.setPreviewTexture( surface );
     }
 
     public void onFrameAvailable(SurfaceTexture surfaceTexture) {
@@ -207,20 +244,18 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      * startVideoPreview( start the preview so you cna begin capturing frames
      * @return the preview started or not
      **********************************************************/
-    public synchronized Boolean startVideoPreview() {
-        try {
-            if (mCamera != null) {
-                Camera.Parameters parameters = mCamera.getParameters();
-                if (parameters != null) {
-                    parameters.setPreviewSize(ENCODING_WIDTH, ENCODING_HEIGHT);
-                    mCamera.setParameters(parameters);
-                    mCamera.startPreview();
-                }
-             }
-        } catch (Exception e) {
-            Log.e(TAG, e.getMessage());
+    public synchronized Boolean startVideoPreview() throws  IllegalStateException{
+        if (mCamera == null ) {
+            throw new IllegalStateException("Null Camera object in startVideoPreview");
         }
-        return true;
+        Camera.Parameters parameters = mCamera.getParameters();
+        if (parameters == null) {
+            throw new IllegalStateException("Null Camera parameters in startVideoPreview");
+        }
+        parameters.setPreviewSize(ENCODING_WIDTH, ENCODING_HEIGHT);
+        mCamera.setParameters(parameters);
+        mCamera.startPreview();
+       return true;
     }
 
     /*******************************************************************
@@ -355,7 +390,6 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
                 Log.e(TAG, "This camera supports UNKNOWN format in preview");
             }
         }
-
     }
 
     /*******************************************************************
@@ -380,8 +414,6 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
         parameters.setPreviewSize( (int)mPreviewWidth,  (int)mPreviewHeight);
     }
 
-
-
     public synchronized void lockExposureAndWhiteBalance(Camera.Parameters parameters) {
         // try to lock the camera settings to get the frame rate we want
         if (parameters.isAutoExposureLockSupported()) {
@@ -405,6 +437,10 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
         parameters.setPreviewFpsRange( actualMin, actualMax ); // for 30 fps
     }
 
+    /*****************************************************************************************************
+     *  getPreviewSizeWidth() the preview window width size
+     * @return  float - widthe
+     ****************************************************************************************************/
     public synchronized float getPreviewSizeWidth() {
         return mPreviewWidth;
     }
@@ -416,34 +452,36 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      * getSharedMemFile
      * @return MemoryFile  which contain all captured video frames
      ****************************************************************/
-    public synchronized SharedVideoMemory getSharedMemFile() {
+    public synchronized SharedVideoMemory getSharedMemFile() throws IllegalStateException {
+        if (mFrameCatcher == null) {
+            throw new IllegalStateException( NULL_IN_GET_SHARED_MEM_FILE );
+        }
         SharedVideoMemory shared = null;
-        if (mFrameCatcher != null && mFrameCatcher.mRecording == true && mFrameCatcher.isSavingVideoFrames()) {
+        if (mFrameCatcher.mRecording == true && mFrameCatcher.isSavingVideoFrames()) {
             shared = mFrameCatcher.getSharedMemFile();
         }
         return shared;
     }
 
     public synchronized void setRecordingState(Boolean state) {
-        if (mFrameCatcher != null) {
-            mFrameCatcher.setRecordingState(state);
+        if (mFrameCatcher == null) {
+            throw new IllegalStateException( NULL_IN_SET_RECORDING_STATE );
         }
+         mFrameCatcher.setRecordingState(state);
     }
 
-    public synchronized Boolean getRecordingState() {
-       Boolean isRecording = false;
-        if (mFrameCatcher != null) {
-            isRecording = mFrameCatcher.getRecordingState();
+    public synchronized Boolean getRecordingState() throws IllegalStateException {
+       if (mFrameCatcher == null) {
+           throw new IllegalStateException( NULL_IN_GET_RECORDING_STATE );
         }
-        return isRecording;
+        return  mFrameCatcher.getRecordingState();
     }
 
-     public synchronized  Camera.Parameters getParameters() {
-        Camera.Parameters parms = null;
-        if (mCamera != null) {
-            parms = mCamera.getParameters();
+     public synchronized  Camera.Parameters getParameters() throws IllegalStateException{
+        if (mCamera == null) {
+            throw new IllegalStateException( NULL_IN_GET_PARAMETERS );
         }
-        return parms;
+        return mCamera.getParameters();
      }
 
      public synchronized  int getActiveCameraId() {
@@ -463,13 +501,20 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
         }
      }
 
-    public synchronized void setRecordingHint(Boolean value, Camera.Parameters parms) {
-            parms.setRecordingHint(value);
+    public synchronized void setRecordingHint(Boolean value, Camera.Parameters parms) throws IllegalArgumentException {
+       if (parms == null) {
+           throw new IllegalArgumentException( NULL_IN_SET_RECORD_HINT );
+       }
+       parms.setRecordingHint(value);
     }
 
-     public synchronized  void setOnFramesReadyCallBack(FramesReadyCallback callback) {
-        if (mFrameCatcher != null) {
-            mFrameCatcher.callback = callback;
+     public synchronized  void setOnFramesReadyCallBack(FramesReadyCallback callback) throws IllegalArgumentException, IllegalStateException {
+        if (callback == null) {
+            throw new IllegalArgumentException( ARGUMENT_NULL_IN_SET_ONFRAMES_READY_CALLBACK );
         }
+        if (mFrameCatcher == null) {
+            throw new IllegalStateException(  NULL_IN_SET_ONFRAMES_READY_CALLBACK );
+        }
+        mFrameCatcher.callback = callback;
      }
 }

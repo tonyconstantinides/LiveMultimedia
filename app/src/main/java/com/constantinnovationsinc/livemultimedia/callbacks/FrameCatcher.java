@@ -30,8 +30,8 @@ public class FrameCatcher implements Camera.PreviewCallback {
     public Boolean mRecording = false;
     public Boolean mStoringVideoFrames = false;
     public SharedVideoMemory mVideoBuffer = null;
-    public int mNumFramesToBuffer = 150;
-    public int mNumFramesBeforeStartingEncoders = 150;
+    public int mNumFramesToBuffer = 210;
+    public int mNumFramesBeforeStartingEncoders = 210;
     public int mWidth = -1;
     public int mHeight = -1;
     public FramesReadyCallback callback;

@@ -71,7 +71,7 @@ public class GPUEncoder implements Runnable{
     private static final int NUM_CAMERA_PREVIEW_BUFFERS = 2;
     private static final boolean WORK_AROUND_BUGS = false;  // avoid fatal codec bugs
     // movie length, in frames
-    private static final int NUM_FRAMES = 150;               // 10 seconds of video
+    private static final int NUM_FRAMES = 210;               // 10 seconds of video
     private static int FRAME_RATE = 30;
 	private static final boolean DEBUG_SAVE_FILE = true;   // save copy of encoded movie
 	private static final String DEBUG_FILE_NAME_BASE = "/sdcard/media/";
