@@ -7,9 +7,7 @@ android {
         mavenCentral()
     }
 
-    dependencies {
-        compile files('libs/support-v4-19.1.0.jar')
-    }
+
 
     defaultConfig {
         applicationId "com.constantinnovationsinc.livemultimedia"
@@ -18,4 +16,7 @@ android {
         versionCode 1
         versionName "1.0"
     }
+}
+dependencies {
+    compile project(':android-support-v4')
 }
