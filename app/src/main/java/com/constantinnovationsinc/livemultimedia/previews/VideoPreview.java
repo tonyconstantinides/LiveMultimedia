@@ -100,6 +100,9 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
         }
     }
 
+    /******************************************
+     * release() - fully releases everything
+     *****************************************/
     public void release() {
         // clear handlers
         mWebServerHandler = null;
@@ -160,13 +163,11 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
         }
     }
 
-    /**
-     * ******************************************************************************************
+    /********************************************************************************************
      * As the surface is being created the camera preview size can be set
      * This may be called multiple times during the app as the user starts and stops the camera
      * Each time a new surface may be created and a new preview window set
-     * *********************************************************************************************
-     */
+     * **********************************************************************************************/
     @Override
     public void onSurfaceTextureAvailable(SurfaceTexture image,
                                           int arg1,
@@ -401,6 +402,9 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
         }
     }
 
+   /********************************************************
+    * playerLazerSound 0 sound when frames are being captured
+    *********************************************************/
     public synchronized void playLazerSound() {
         if (mAVRecorder != null) {
             mAVRecorder.playSound(START_CAPTURE_FRAMES_SOUND);

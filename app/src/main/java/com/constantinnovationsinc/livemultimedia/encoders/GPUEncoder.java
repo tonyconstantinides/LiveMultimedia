@@ -223,7 +223,11 @@ public class GPUEncoder implements Runnable{
 
     public synchronized void createVideoFormat() {
         // creat the codec first because you need some info
-        mCodec = MediaCodec.createEncoderByType(MIME_TYPE);
+        try {
+            mCodec = MediaCodec.createEncoderByType(MIME_TYPE);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         MediaCodecInfo codecInfo  = mCodec.getCodecInfo();
         Log.w(TAG, "Codec info Name :"     + codecInfo.getName());
         Log.w(TAG, "Codec info Encoder? :" + codecInfo.isEncoder());
@@ -321,7 +325,11 @@ public class GPUEncoder implements Runnable{
 
     public synchronized void createAudioCodec() {
         if (mAudioFeatureActive ) {
-            mAudioEncoder = MediaCodec.createEncoderByType(mAudioCodecName);
+            try {
+                mAudioEncoder = MediaCodec.createEncoderByType(mAudioCodecName);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
             mAudioBufferInfo = new MediaCodec.BufferInfo();
             try {
                 mAudioEncoder.configure(mAudioFormat,
