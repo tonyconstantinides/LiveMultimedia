@@ -32,6 +32,15 @@ public class LiveMultimediaActivity extends FragmentActivity {
                 transaction.commit();
             }
         }
+        String test = "Hello";
+        switch(test) {
+            case "Hello":
+              break;
+            case "Crap":
+             break;
+            default:
+            break;
+        }
     }
 
     @Override
