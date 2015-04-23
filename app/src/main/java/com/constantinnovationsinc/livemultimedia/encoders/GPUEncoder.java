@@ -1,13 +1,10 @@
 package com.constantinnovationsinc.livemultimedia.encoders;
 
-import android.app.Activity;
 import android.app.Application;
-import android.content.Context;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
 import android.graphics.YuvImage;
 import android.hardware.Camera.Parameters;
-import android.media.AudioManager;
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
 import android.media.MediaCodecInfo;
@@ -15,8 +12,6 @@ import android.media.MediaCodecList;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
 import android.media.MediaPlayer;
-import android.media.SoundPool;
-import android.opengl.GLES20;
 import android.os.Debug;
 import android.os.Environment;
 import android.os.SystemClock;
@@ -30,26 +25,15 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 
-import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-
-import javax.microedition.khronos.opengles.GL10;
-
-import com.constantinnovationsinc.livemultimedia.R;
 import com.constantinnovationsinc.livemultimedia.app.MultimediaApp;
 import com.constantinnovationsinc.livemultimedia.cameras.JellyBeanCamera;
 import com.constantinnovationsinc.livemultimedia.recorders.AVRecorder;
-import com.constantinnovationsinc.livemultimedia.surfaces.InputSurface;
-import com.constantinnovationsinc.livemultimedia.surfaces.OutputSurface;
 import com.constantinnovationsinc.livemultimedia.utilities.SharedVideoMemory;
 
 /**********************************************************************************************
@@ -197,6 +181,7 @@ public class GPUEncoder implements Runnable{
             mMuxer = null;
         }
     }
+
     public synchronized void  reportMemoryUsage() {
         mFreeMegs = (int) (Runtime.getRuntime().freeMemory() - Debug.getNativeHeapFreeSize());
         String freeMegsString = String.format(" - Free Memory  %d MB", mFreeMegs);
@@ -412,10 +397,8 @@ public class GPUEncoder implements Runnable{
             if (!mSharedMemFile.isEmpty() ) {
                 mSharedMemFile.getNextFrame(frameNum, videoFrame);
             }
-            if (videoFrame != null) {
-                // color correct it
-                System.arraycopy(videoFrame, 0, frameData, 0, videoFrame.length);
-            }
+           // color correct it
+           System.arraycopy(videoFrame, 0, frameData, 0, videoFrame.length);
 
         } catch (OutOfMemoryError e) {
             Log.e(TAG, e.toString());
@@ -460,73 +443,74 @@ public class GPUEncoder implements Runnable{
 
         if (!encoderDone) {
             int encoderStatus = encoder.dequeueOutputBuffer(mBufferInfo , TIMEOUT_USEC);
-            if (encoderStatus == MediaCodec.INFO_TRY_AGAIN_LATER) {
-                // no output available yet
-                Log.d(TAG, "-------------------------------------------------------------");
-                Log.d(TAG, "Encoder status: no output from encoder available");
-                Log.d(TAG, "-------------------------------------------------------------");
-
-            } else if (encoderStatus == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
-                // not expected for an encoder
-                encoderOutputBuffers = encoder.getOutputBuffers();
-                Log.d(TAG, "-------------------------------------------------------------");
-                Log.d(TAG, "Encoder status: encoder output buffers changed");
-                Log.d(TAG, "-------------------------------------------------------------");
-            } else if (encoderStatus == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                // not expected for an encoder
-                mNewFormat = encoder.getOutputFormat();
-                Log.d(TAG, "-------------------------------------------------------------");
-                Log.d(TAG, "Encoder status: encoder output format changed: " + mNewFormat.toString());
-                Log.d(TAG, "-------------------------------------------------------------");
-                startMuxer();
-                // reduce the encoded video tracks
-                mVideoFrameEncoded = 0;
-            } else if (encoderStatus < 0) {
-                Log.e(TAG, "unexpected result from encoder.dequeueOutputBuffer: " + encoderStatus);
-            } else { // encoderStatus >= 0
-                ByteBuffer encodedData = encoderOutputBuffers[encoderStatus];
-                // Codec config info.  Only expected on first packet.  One way to
-                // handle this is to manually stuff the data into the MediaFormat
-                // and pass that to configure().
-                if ((mBufferInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
-                    // The codec config data was pulled out and fed to the muxer when we got
-                    // the INFO_OUTPUT_FORMAT_CHANGED status.  Ignore it.
-                    Log.d(TAG, "ignoring BUFFER_FLAG_CODEC_CONFIG");
-                    mBufferInfo.size = 0;
-                }
-                if (encodedData == null) {
-                    Log.e(TAG, "encoderOutputBuffer " + encoderStatus + " was null");
-                } else  if ( mVideoFrameEncoded  == 1) {
-                    Log.d(TAG, "-----------------------------------");
-                    Log.d(TAG, "Setting csd-0 on first track");
-                    Log.d(TAG, "-----------------------------------");
-                    mFormat.setByteBuffer("csd-0", encodedData);
-                }
-                // It's usually necessary to adjust the ByteBuffer values to match BufferInfo.
-                if (mBufferInfo.size != 0) {
-                    encodedData.position(mBufferInfo.offset);
-                    encodedData.limit(mBufferInfo.offset + mBufferInfo.size);
-                    encodedSize += mBufferInfo.size;
-                    Log.w(TAG, "---->Writing Video data using MediaMuxer");
-                    mMuxer.writeSampleData(mVideoTrackIndex, encodedData, mBufferInfo);
-                    if (  mAudioFeatureActive ) {
-                        encodeAudio();
-                        // the first frames are configured and are skipped check for that
-                        if (mCurrentEncodedAudioData != null) {
-                            Log.w(TAG, "---->Writing Audio data using MediaMuxer");
-                            ByteBuffer audioData = ByteBuffer.wrap(mCurrentEncodedAudioData);
-                            mMuxer.writeSampleData(mAudioTrackIndex, audioData, mBufferInfo);
-                        }
-                        mCurrentEncodedAudioData = null;
+            switch(encoderStatus) {
+                case  MediaCodec.INFO_TRY_AGAIN_LATER:
+                    // no output available yet
+                    Log.d(TAG, "-------------------------------------------------------------");
+                    Log.d(TAG, "Encoder status: no output from encoder available");
+                    Log.d(TAG, "-------------------------------------------------------------");
+                    break;
+                case  MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED:
+                    // not expected for an encoder
+                    encoderOutputBuffers = encoder.getOutputBuffers();
+                    Log.d(TAG, "-------------------------------------------------------------");
+                    Log.d(TAG, "Encoder status: encoder output buffers changed");
+                    Log.d(TAG, "-------------------------------------------------------------");
+                    break;
+                case MediaCodec.INFO_OUTPUT_FORMAT_CHANGED:
+                    // not expected for an encoder
+                    mNewFormat = encoder.getOutputFormat();
+                    Log.d(TAG, "-------------------------------------------------------------");
+                    Log.d(TAG, "Encoder status: encoder output format changed: " + mNewFormat.toString());
+                    Log.d(TAG, "-------------------------------------------------------------");
+                    startMuxer();
+                    // reduce the encoded video tracks
+                    mVideoFrameEncoded = 0;
+                   break;
+                default:
+                    ByteBuffer encodedData = encoderOutputBuffers[encoderStatus];
+                    // Codec config info.  Only expected on first packet.  One way to
+                    // handle this is to manually stuff the data into the MediaFormat
+                    // and pass that to configure().
+                    if ((mBufferInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
+                        // The codec config data was pulled out and fed to the muxer when we got
+                        // the INFO_OUTPUT_FORMAT_CHANGED status.  Ignore it.
+                        Log.d(TAG, "ignoring BUFFER_FLAG_CODEC_CONFIG");
+                        mBufferInfo.size = 0;
                     }
-                }
-                // now release the encoder buffer so the MediaCodec can reuse
-                encoder.releaseOutputBuffer(encoderStatus, false);
-                if ((mBufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
-                    Log.d(TAG, "output EOS");
-                    mLastTrackProcessed = true;
-                }
-            } // END OF ENODER STATUS > 0
+                    if (encodedData == null) {
+                        Log.e(TAG, "encoderOutputBuffer " + encoderStatus + " was null");
+                    } else  if ( mVideoFrameEncoded  == 1) {
+                        Log.d(TAG, "-----------------------------------");
+                        Log.d(TAG, "Setting csd-0 on first track");
+                        Log.d(TAG, "-----------------------------------");
+                        mFormat.setByteBuffer("csd-0", encodedData);
+                    }
+                        // It's usually necessary to adjust the ByteBuffer values to match BufferInfo.
+                    if (mBufferInfo.size != 0) {
+                        encodedData.position(mBufferInfo.offset);
+                        encodedData.limit(mBufferInfo.offset + mBufferInfo.size);
+                        encodedSize += mBufferInfo.size;
+                        Log.w(TAG, "---->Writing Video data using MediaMuxer");
+                        mMuxer.writeSampleData(mVideoTrackIndex, encodedData, mBufferInfo);
+                        if (  mAudioFeatureActive ) {
+                            encodeAudio();
+                            // the first frames are configured and are skipped check for that
+                            if (mCurrentEncodedAudioData != null) {
+                                Log.w(TAG, "---->Writing Audio data using MediaMuxer");
+                                ByteBuffer audioData = ByteBuffer.wrap(mCurrentEncodedAudioData);
+                                mMuxer.writeSampleData(mAudioTrackIndex, audioData, mBufferInfo);
+                            }
+                            mCurrentEncodedAudioData = null;
+                        }
+                    }
+                    // now release the encoder buffer so the MediaCodec can reuse
+                     encoder.releaseOutputBuffer(encoderStatus, false);
+                    if ((mBufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+                        Log.d(TAG, "output EOS");
+                        mLastTrackProcessed = true;
+                    }
+                } // END OF ENODER STATUS > 0
         }     // EMD OF ENCODER LOOP
     }
 
@@ -647,8 +631,8 @@ public class GPUEncoder implements Runnable{
            for (int i = 0; i < numCodecs; i++) {
                MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
                String[] types = codecInfo.getSupportedTypes();
-                for (int j = 0; j < types.length; j++) {
-                    if (types[j].equalsIgnoreCase(mimeType)) {
+                for (String codecType : types) {
+                    if (codecType.equalsIgnoreCase(mimeType)) {
                         return codecInfo;
                     }
                 }
@@ -825,10 +809,7 @@ public class GPUEncoder implements Runnable{
     **************************************************************/
     private boolean isExternalStorageWritable() {
         String state = Environment.getExternalStorageState();
-        if (Environment.MEDIA_MOUNTED.equals(state)) {
-            return true;
-        }
-        return false;
+        return Environment.MEDIA_MOUNTED.equals(state);
     }
 
     /*************************************************************
@@ -836,11 +817,8 @@ public class GPUEncoder implements Runnable{
     *************************************************************/
     private boolean isExternalStorageReadable() {
         String state = Environment.getExternalStorageState();
-        if (Environment.MEDIA_MOUNTED.equals(state) ||
-            Environment.MEDIA_MOUNTED_READ_ONLY.equals(state)) {
-            return true;
-        }
-        return false;
+        return Environment.MEDIA_MOUNTED.equals(state) ||
+                Environment.MEDIA_MOUNTED_READ_ONLY.equals(state);
     }
     /*****************************************************************
      * Generates the presentation time for frame N, in microseconds.

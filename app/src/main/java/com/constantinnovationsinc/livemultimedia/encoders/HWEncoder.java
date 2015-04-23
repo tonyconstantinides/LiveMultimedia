@@ -118,6 +118,7 @@ public class HWEncoder  implements Runnable{
         try {
             inputStream.close();
         } catch (IOException e) {
+
         }
         try {
             thread.interrupt();
@@ -417,8 +418,8 @@ public class HWEncoder  implements Runnable{
                 }
     
                 String[] types = codecInfo.getSupportedTypes();
-                for (int j = 0; j < types.length; j++) {
-                    if (types[j].equalsIgnoreCase(mimeType)) {
+                for (String codecType :  types) {
+                    if (codecType.equalsIgnoreCase(mimeType)) {
                         return codecInfo;
                     }
                 }
@@ -1147,7 +1148,7 @@ public class HWEncoder  implements Runnable{
                          startY = 0;
                      }
              
-                     GLES20.glDisable(GLES20.GL_SCISSOR_TEST);
+                      GLES20.glDisable(GLES20.GL_SCISSOR_TEST);
                       GLES20.glClearColor(TEST_R0 / 255.0f, TEST_G0 / 255.0f, TEST_B0 / 255.0f, 1.0f);
                       GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
                       GLES20.glEnable(GLES20.GL_SCISSOR_TEST);

@@ -113,7 +113,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
             return false;
         Camera.CameraInfo info = new Camera.CameraInfo();
         Camera.getCameraInfo( getActiveCameraId(), info);
-        if (info.facing == info.CAMERA_FACING_BACK) {
+        if (info.facing == Camera.CameraInfo.CAMERA_FACING_BACK) {
            flag = true;
         }
         return flag;
@@ -128,7 +128,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
         if (getActiveCameraId() == -1)
             return false;
         Camera.CameraInfo info =  new Camera.CameraInfo();
-        if (info.facing == info.CAMERA_FACING_FRONT) {
+        if (info.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
             flag = true;
         }
         return flag;
@@ -338,7 +338,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
         mFrameCatcher = new FrameCatcher( mPreviewWidth,
                                           mPreviewHeight,
                                           getImageFormat(),
-                                          (FramesReadyCallback)mVideoPreview);
+                                          mVideoPreview);
         long bufferSize = 0;
         bufferSize = mPreviewWidth * mPreviewHeight  * ImageFormat.getBitsPerPixel(mImageFormat) / 8;
         long sizeWeShouldHave = (mPreviewWidth * 	mPreviewHeight  * 3 / 2);

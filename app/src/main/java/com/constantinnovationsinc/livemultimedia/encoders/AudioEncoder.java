@@ -16,15 +16,12 @@ import android.media.MediaPlayer.TrackInfo;
 
 import com.constantinnovationsinc.livemultimedia.app.MultimediaApp;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.nio.ByteBuffer;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteOrder;
-import java.util.concurrent.ArrayBlockingQueue;
 
 /**
  * Created by constantinnovationsinc on 8/17/14.
@@ -36,6 +33,7 @@ public class AudioEncoder  implements Runnable{
     private static final String AUDIO_MIME_TYPE = "audio/mp4a-latm";
 
     // Audio Encoder and Configuration
+    //
     private MediaMuxer mAudioMuxer;
     private MediaCodec mAudioEncoder;
     private MediaCodec.BufferInfo mAudioBufferInfo;
@@ -97,11 +95,11 @@ public class AudioEncoder  implements Runnable{
             while(!mAudioRecordingStopped ) {
                 short[] buffer = buffers[ix++ % buffers.length];
                 int readStatus = mRecorder.read(buffer, 0, buffer.length);
-                if (readStatus == mRecorder.ERROR_BAD_VALUE) {
+                if (readStatus == AudioRecord.ERROR_BAD_VALUE) {
                     Log.e(TAG, "Error reading audio data");
                     mAudioRecordingStopped = true;
                 }
-                if (readStatus == mRecorder.ERROR_INVALID_OPERATION) {
+                if (readStatus == AudioRecord.ERROR_INVALID_OPERATION) {
                     Log.e(TAG, "Error Invalid operation");
                     mAudioRecordingStopped = true;
                 }
@@ -145,28 +143,27 @@ public class AudioEncoder  implements Runnable{
      **************************************************************/
     private synchronized boolean isExternalStorageWritable() {
         String state = Environment.getExternalStorageState();
-        if (Environment.MEDIA_MOUNTED.equals(state)) {
-            return true;
-        }
-        return false;
+        return Environment.MEDIA_MOUNTED.equals(state);
     }
 
 
-    public synchronized void createAudioMuxer() {
+    public synchronized void createAudioMuxer() throws IllegalStateException{
         if (Thread.currentThread().isInterrupted()) {
                 release();
         }
         if ( isExternalStorageWritable()) {
             File encodedFile = new File(OUTPUT_FILENAME_DIR, "/movies/EncodedAudio.mp4");
             if (encodedFile.exists()) {
-                encodedFile.delete();
+                boolean result = encodedFile.delete();
+                if (!result)
+                     throw new IllegalStateException("Unable to delete video file");
             }
             String outputPath = encodedFile.toString();
             int format = MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4;
             try {
                 mAudioMuxer = new MediaMuxer(outputPath, format);
             } catch (IOException e) {
-                Log.e(TAG, "Audio temo muxer failed to create!!");
+                Log.e(TAG, "Audio temp Muxer failed to create!!");
             }
         }
     }
@@ -193,10 +190,27 @@ public class AudioEncoder  implements Runnable{
 
     private synchronized List<String> getEncoderNamesForType(String mime) {
         LinkedList<String> names = new LinkedList<String>();
-        int n = MediaCodecList.getCodecCount();
-        for (int i = 0; i < n; ++i) {
-            MediaCodecInfo info = MediaCodecList.getCodecInfoAt(i);
-            if (!info.isEncoder()) {
+        MediaCodecInfo[] codecInfo = null;
+        MediaCodecInfo info = null;
+        int codecTotalNum = 0;
+        int sdk = android.os.Build.VERSION.SDK_INT;
+        if(sdk <= android.os.Build.VERSION_CODES.JELLY_BEAN) {
+            codecTotalNum = MediaCodecList.getCodecCount();
+        } else {
+            MediaCodecList   codecList = new MediaCodecList(MediaCodecList.ALL_CODECS);
+            codecInfo     = codecList.getCodecInfos();
+            codecTotalNum = codecInfo.length;
+        }
+
+        for (int i = 0; i < codecTotalNum; ++i) {
+            if(sdk <= android.os.Build.VERSION_CODES.JELLY_BEAN) {
+                info = MediaCodecList.getCodecInfoAt(i);
+            } else {
+                if (codecInfo != null) {
+                    info = codecInfo[i];
+                }
+            }
+            if (info instanceof MediaCodecInfo && !info.isEncoder()) {
                 continue;
             }
             if (!info.getName().startsWith("OMX.")) {
@@ -208,8 +222,8 @@ public class AudioEncoder  implements Runnable{
                 continue;
             }
             String[] supportedTypes = info.getSupportedTypes();
-            for (int j = 0; j < supportedTypes.length; ++j) {
-                if (supportedTypes[j].equalsIgnoreCase(mime)) {
+            for (String type : supportedTypes) {
+                if (type.equalsIgnoreCase(mime)) {
                     names.push(info.getName());
                     break;
                 }

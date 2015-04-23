@@ -60,11 +60,7 @@ public class CameraThread extends HandlerThread {
             mCamera.setPreviewTexture(mTexture);
             Log.d(TAG, "Starting the camera preview..");
             mCamera.startVideoPreview();
-        } catch (IOException e) {
-            Log.e(TAG, e.toString());
-        } catch (IllegalArgumentException e) {
-            Log.e(TAG, e.toString());
-        } catch (IllegalStateException e) {
+        } catch (IOException | IllegalArgumentException | IllegalStateException e) {
             Log.e(TAG, e.toString());
         }
     }

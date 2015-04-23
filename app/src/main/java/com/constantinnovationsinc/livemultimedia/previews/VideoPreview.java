@@ -2,11 +2,8 @@ package com.constantinnovationsinc.livemultimedia.previews;
 
 import android.content.Context;
 import android.content.res.Configuration;
-import android.os.Looper;
-import android.os.Process;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.os.Message;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.graphics.SurfaceTexture;
@@ -15,13 +12,7 @@ import android.view.TextureView.SurfaceTextureListener;
 import android.widget.TextView;
 import android.widget.FrameLayout;
 import android.widget.FrameLayout.LayoutParams;
-
-import java.io.File;
 import java.io.IOException;
-import java.lang.RuntimeException;
-import java.util.ArrayList;
-import java.util.List;
-
 import com.constantinnovationsinc.livemultimedia.activities.LiveMultimediaActivity;
 import com.constantinnovationsinc.livemultimedia.callbacks.FramesReadyCallback;
 import com.constantinnovationsinc.livemultimedia.cameras.JellyBeanCamera;

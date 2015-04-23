@@ -1,6 +1,7 @@
 package com.constantinnovationsinc.livemultimedia.app;
 
 import android.app.Application;
+import android.content.ComponentCallbacks;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -36,8 +37,14 @@ public class MultimediaApp extends Application {
     }
 
     @Override
+    public void registerComponentCallbacks(ComponentCallbacks callback) {
+        super.registerComponentCallbacks(callback);
+    }
+
+    @Override
     public void onTerminate() {
         super.onTerminate();
+
     }
 
 }

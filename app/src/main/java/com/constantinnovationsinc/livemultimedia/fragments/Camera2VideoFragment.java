@@ -51,7 +51,7 @@ public class Camera2VideoFragment extends Fragment implements View.OnClickListen
         mButtonFrontCamera = (Button) view.findViewById(R.id.frontcamera);
         mButtonRecordVideo = (Button) view.findViewById(R.id.recordvideo);
         mButtonExit        = (Button) view.findViewById(R.id.exit);
-        if (view != null && mVideoPreviewFrame != null) {
+        if (mVideoPreviewFrame != null) {
             createVideoPreviewWindow(Camera.CameraInfo.CAMERA_FACING_BACK);
         }
         if (mButtonRecordVideo != null) {

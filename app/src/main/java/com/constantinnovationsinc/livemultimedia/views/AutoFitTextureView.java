@@ -2,7 +2,6 @@ package com.constantinnovationsinc.livemultimedia.views;
 
 import android.content.Context;
 import android.util.AttributeSet;
-import android.view.TextureView;
 import com.constantinnovationsinc.livemultimedia.previews.VideoPreview;
 
 public class AutoFitTextureView extends VideoPreview {

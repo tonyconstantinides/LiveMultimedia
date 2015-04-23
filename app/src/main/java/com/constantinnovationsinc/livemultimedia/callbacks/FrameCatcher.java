@@ -1,27 +1,23 @@
 package com.constantinnovationsinc.livemultimedia.callbacks;
 
-import android.app.Activity;
-import android.content.Context;
-import android.hardware.Camera;
-import android.media.AudioManager;
-import android.media.SoundPool;
-import android.util.Log;
-import android.graphics.YuvImage;
-import java.io.ByteArrayOutputStream;
-import android.graphics.ImageFormat;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.ImageFormat;
 import android.graphics.Rect;
+import android.graphics.YuvImage;
+import android.hardware.Camera;
 import android.os.Environment;
-import java.util.Random;
-import java.io.File;
-import java.io.FileOutputStream;
+import android.util.Log;
 
-import com.constantinnovationsinc.livemultimedia.R;
-import com.constantinnovationsinc.livemultimedia.utilities.SharedVideoMemory;
 import com.constantinnovationsinc.livemultimedia.utilities.ColorSpaceManager;
+import com.constantinnovationsinc.livemultimedia.utilities.SharedVideoMemory;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.Random;
 
 
 public class FrameCatcher implements Camera.PreviewCallback {
@@ -132,21 +128,25 @@ public class FrameCatcher implements Camera.PreviewCallback {
         return bmp;
     }
 
-    public void saveBitmap(Bitmap finalBitmap) {
+    public void saveBitmap(Bitmap finalBitmap) throws IllegalStateException {
         String root = Environment.getExternalStorageDirectory().toString() + "/Pictures";
         Random generator = new Random();
         int n = 10000;
         n = generator.nextInt(n);
         String fname = "Image-" + n + ".jpg";
         File file = new File(root, fname);
-        if (file.exists()) file.delete();
+        if (file.exists()) {
+          boolean status = file.delete();
+          if (!status) throw new IllegalStateException("Unable to delete File");
+        }
         try {
             FileOutputStream out = new FileOutputStream(file);
             finalBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out);
             out.flush();
             out.close();
-
-        } catch (Exception e) {
+        } catch (FileNotFoundException e ) {
+            e.printStackTrace();
+        } catch ( IOException e) {
             e.printStackTrace();
         }
     }

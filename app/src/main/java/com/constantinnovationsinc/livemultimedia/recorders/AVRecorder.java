@@ -7,15 +7,11 @@ import android.app.Activity;
 import android.os.Environment;
 import android.media.SoundPool;
 import android.media.AudioManager;
-import android.media.AudioRecord;
-import android.media.AudioFormat;
-import android.media.MediaRecorder.AudioSource;
 
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.FileNotFoundException;
 
 import com.constantinnovationsinc.livemultimedia.app.MultimediaApp;
@@ -133,8 +129,6 @@ public class AVRecorder implements Runnable{
                     HttpFileUpload hfu = new HttpFileUpload(url, "Video file", "Recorded file");
                     hfu.Send_Now(fstrm);
                 } catch (FileNotFoundException e) {
-                    Log.e(TAG, e.toString());
-                } catch (Exception e) {
                     Log.e(TAG, e.toString());
                 }
             }

@@ -993,18 +993,19 @@ public abstract class NanoHTTPD {
 
                     if ("multipart/form-data".equalsIgnoreCase(contentType)) {
                         // Handle multipart/form-data
-                        if (!st.hasMoreTokens()) {
+                        if (st instanceof StringTokenizer && !st.hasMoreTokens()) {
                             throw new ResponseException(Response.Status.BAD_REQUEST, "BAD REQUEST: Content type is multipart/form-data but boundary missing. Usage: GET /example/file.html");
                         }
 
                         String boundaryStartString = "boundary=";
-                        int boundaryContentStart = contentTypeHeader.indexOf(boundaryStartString) + boundaryStartString.length();
-                        String boundary = contentTypeHeader.substring(boundaryContentStart, contentTypeHeader.length());
-                        if (boundary.startsWith("\"") && boundary.endsWith("\"")) {
-                            boundary = boundary.substring(1, boundary.length() - 1);
+                        if (contentTypeHeader instanceof String) {
+                            int boundaryContentStart = contentTypeHeader.indexOf(boundaryStartString) + boundaryStartString.length();
+                            String boundary = contentTypeHeader.substring(boundaryContentStart, contentTypeHeader.length());
+                            if (boundary.startsWith("\"") && boundary.endsWith("\"")) {
+                                boundary = boundary.substring(1, boundary.length() - 1);
+                            }
+                            decodeMultipartData(boundary, fbuf, in, parms, files);
                         }
-
-                        decodeMultipartData(boundary, fbuf, in, parms, files);
                     } else {
                         String postLine = "";
                         StringBuilder postLineBuffer = new StringBuilder();

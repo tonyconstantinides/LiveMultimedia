@@ -42,7 +42,7 @@ public class SharedVideoMemory {
      * file, it will be deleted.
      */
     public void close() {
-        mSharedMemFile.close();
+       mSharedMemFile.close();
     }
 
     public boolean isEmpty() {

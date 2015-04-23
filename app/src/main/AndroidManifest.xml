@@ -4,7 +4,7 @@
 
     <uses-sdk
         android:minSdkVersion="18"
-        android:targetSdkVersion="21" />
+        android:targetSdkVersion="22" />
 
     <uses-feature android:name="android.hardware.camera.any" android:required="true" />
     <uses-feature android:name="android.hardware.microphone" android:required="true" />
@@ -26,21 +26,11 @@
             android:name=".activities.LiveMultimediaActivity"
             android:label="@string/title_activity_livemultimedia"
             android:screenOrientation="landscape"
-            android:configChanges="keyboardHidden|screenSize"
-            android:parentActivityName=".activities.LiveMultimedia" >
+            android:configChanges="keyboardHidden|screenSize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
-        <activity
-            android:name=".activities.CameraDetailActivity"
-            android:label="@string/title_activity_camera_detail"
-            android:screenOrientation="landscape"
-            android:parentActivityName=".activities.LiveMultimedia" >
-            <meta-data
-                android:name="android.support.PARENT_ACTIVITY"
-                android:value="com.constantinnovationsinc.livemultimedia.activities.LiveMultimedia" />
         </activity>
         <receiver
             android:name=".receivers.NetworkStateReceiver"
