@@ -44,7 +44,7 @@ import com.constantinnovationsinc.livemultimedia.renders.TextureRender;
  * can potentially drop frames.
  */
 public class OutputSurface implements SurfaceTexture.OnFrameAvailableListener {
-    private static final String TAG = "OutputSurface";
+    private static final String TAG = OutputSurface.class.getCanonicalName();
     private static final boolean VERBOSE = false;
 
     private static final int EGL_OPENGL_ES2_BIT = 4;

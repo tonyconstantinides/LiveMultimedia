@@ -18,7 +18,7 @@ import com.constantinnovationsinc.livemultimedia.previews.VideoPreview;
 import com.constantinnovationsinc.livemultimedia.R;
 
 public class Camera2VideoFragment extends Fragment implements View.OnClickListener {
-    private static final String TAG = Camera2VideoFragment.class.getName();
+    private static final String TAG = Camera2VideoFragment.class.getCanonicalName();
     private FrameLayout mVideoPreviewFrame;
     private VideoPreview mVideoPreview;
     private Button mButtonBackCamera;

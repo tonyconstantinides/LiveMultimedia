@@ -21,7 +21,7 @@ import java.util.Random;
 
 
 public class FrameCatcher implements Camera.PreviewCallback {
-    private static final String TAG = FrameCatcher.class.getName();
+    private static final String TAG = FrameCatcher.class.getCanonicalName();
     private final long mExpectedSize;
     public Boolean mRecording = false;
     public Boolean mStoringVideoFrames = false;

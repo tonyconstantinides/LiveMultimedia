@@ -6,8 +6,11 @@ import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.util.Log;
+import android.os.Build;
+
 import java.io.IOException;
 import java.util.List;
+
 
 import com.constantinnovationsinc.livemultimedia.callbacks.FramesReadyCallback;
 import com.constantinnovationsinc.livemultimedia.callbacks.FrameCatcher;
@@ -18,7 +21,7 @@ import com.constantinnovationsinc.livemultimedia.utilities.SharedVideoMemory;
  * Created by constantinnovationsinc on 8/6/14.
  */
 public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListener{
-    private static final String TAG = JellyBeanCamera.class.getName();
+    private static final String TAG = JellyBeanCamera.class.getCanonicalName();
     private static final String NULL_IN_START_FRONT_CAMERA   = "Camera is Null in startFrontCamera()";
     private static final String NULL_IN_START_BACK_CAMERA    = "Camera is Null in startBackCamera()";
     private static final String NULL_IN_GET_PARAMETERS       = "Camera object is Null in getParameters()";
@@ -60,6 +63,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      * @param context - the context associated with this encoding thread
      *********************************************************************/
     public JellyBeanCamera(Context context, VideoPreview videoPreview) {
+        Log.d(TAG, "JellyBean constructor called!");
         mContext = context;
         mVideoPreview = videoPreview;
     }
@@ -69,12 +73,13 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      * @return camera - active camera
      *********************************************************************/
     public synchronized Camera startBackCamera() throws IllegalStateException{
-        Log.d(TAG, "Camera about to be opened in a thread!");
-        if (mCamera == null) {
-            throw new IllegalStateException( NULL_IN_START_BACK_CAMERA );
-        }
+        Log.d(TAG, "startBackCamera()");
         setParameters( ENCODING_WIDTH, ENCODING_HEIGHT, BITRATE);
         mCamera = Camera.open(Camera.CameraInfo.CAMERA_FACING_BACK);
+        if (mCamera == null) {
+            Log.e(TAG, "startBackCamera() failed because internal Camera is Null");
+            throw new IllegalStateException( NULL_IN_START_BACK_CAMERA );
+        }
         setActiveCameraId(Camera.CameraInfo.CAMERA_FACING_BACK);
         return mCamera;
     }
@@ -84,12 +89,13 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      * @return camera - active camera
      *********************************************************************/
     public synchronized Camera startFrontCamera() throws IllegalStateException{
-        Log.d(TAG, "Camera about to be opened in a thread!");
-        if (mCamera == null) {
-            throw new IllegalStateException( NULL_IN_START_FRONT_CAMERA );
-        }
+        Log.d(TAG, "startFrontCamera()");
         setParameters(ENCODING_WIDTH, ENCODING_HEIGHT, BITRATE);
         mCamera = Camera.open(Camera.CameraInfo.CAMERA_FACING_FRONT);
+        if (mCamera == null) {
+            Log.e(TAG, "startFrontCamera() failed because internal Camera is Null");
+            throw new IllegalStateException( NULL_IN_START_FRONT_CAMERA );
+        }
         setActiveCameraId(Camera.CameraInfo.CAMERA_FACING_FRONT);
         return mCamera;
     }
@@ -138,7 +144,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      *  stopCamera - Stops the preview and the capture process
      **********************************************************/
     public synchronized void  stopCamera() {
-        Log.d(TAG, "Camera preview stopped and Camera released!");
+        Log.d(TAG, "stopCamera()!");
         if (mCamera != null) {
             mCamera.stopPreview();
             mCamera.setPreviewCallbackWithBuffer(null);
@@ -182,9 +188,10 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      * frame capture method
      **********************************************************/
     public synchronized void setupPreviewWindow() throws IllegalStateException{
-        Log.d(TAG, "Lets setup the preview Window");
+        Log.d(TAG, "Camera setup the preview Window");
         try {
             if (mCamera == null) {
+                Log.e(TAG, "setupPreviewWindiow() failed due to null camera");
                 throw new IllegalStateException("Camera object is Null in setupPreviewWindow");
             }
             Camera.Parameters parameters = mCamera.getParameters();
@@ -218,6 +225,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      **********************************************************/
     public synchronized void setupVideoCaptureMethod() {
         // set up the callback to capture the video frames
+        Log.d(TAG, "setupVideoCaptureMethod()");
         setupVideoFrameCallback();
     }
 
@@ -237,7 +245,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
     }
 
     public void onFrameAvailable(SurfaceTexture surfaceTexture) {
-        Log.w(TAG, "Receiving frames from Textur!e");
+        Log.w(TAG, "Receiving frames from Texture!");
     }
 
     /**********************************************************
@@ -245,6 +253,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      * @return the preview started or not
      **********************************************************/
     public synchronized Boolean startVideoPreview() throws  IllegalStateException{
+        Log.d(TAG, "startVideoPreview()");
         if (mCamera == null ) {
             throw new IllegalStateException("Null Camera object in startVideoPreview");
         }
@@ -263,6 +272,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      *  releases the camera
      ******************************************************************/
     public synchronized void release() {
+        Log.d(TAG, "release() called on the Camera class");
         if (mCamera != null) {
             mCamera.addCallbackBuffer(null);
             mCamera.stopPreview();
@@ -331,6 +341,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      * setup the buffer to hold the images
      **********************************************************/
     private synchronized  void setupVideoFrameCallback() {
+        Log.d(TAG, "setupVideoFrameCallback(() called on the Camera class");
         if (mCamera == null) {
             Log.e(TAG, "Camera object is null in setupVideoFrameCallback!");
             return;
@@ -397,6 +408,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      * @param parameters camera preview settings
      ******************************************************************/
     private synchronized void adjustPreviewSize(Camera.Parameters parameters) {
+        Log.d(TAG, "adjustPreviewSize(Camera.Parameters parameters)");
         mPreviewWidth = parameters.getPreviewSize().width;
         mPreviewHeight = parameters.getPictureSize().height;
         List<Camera.Size> sizes = parameters.getSupportedPreviewSizes();

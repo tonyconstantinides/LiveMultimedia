@@ -26,7 +26,7 @@ import com.constantinnovationsinc.livemultimedia.R;
  * Created by constantinnovationsinc on 8/17/14.
  */
 public class AVRecorder implements Runnable{
-    private static final String TAG = AVRecorder.class.getName();
+    private static final String TAG = AVRecorder.class.getCanonicalName();
     private static final String ENCODING_THREAD_NAME = "AVEncodingThread";
     private static final String START_CAPTURE_FRAMES_SOUND = "StartCaptureSound";
     private static final String START_ENCODERS_SOUND = "StartEncodersSound";

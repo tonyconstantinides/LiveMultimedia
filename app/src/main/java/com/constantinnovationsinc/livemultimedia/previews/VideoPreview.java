@@ -35,7 +35,7 @@ import com.constantinnovationsinc.livemultimedia.R;
  * the app to capture video frame from the preview window.
  ***************************************************************************************************************/
 public class VideoPreview extends TextureView implements SurfaceTextureListener, FramesReadyCallback {
-    private static final String TAG = VideoPreview.class.getSimpleName();
+    private static final String TAG = VideoPreview.class.getCanonicalName();
     private static final String START_CAPTURE_FRAMES_SOUND = "StartCaptureSound";
     private static final String START_ENCODERS_SOUND = "StartEncodersSound";
 
@@ -57,21 +57,25 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
     private int mRatioHeight = 0;
 
     public int mRotation = -1;
+    public int mActiveCam = -1;
     public Boolean recordStarted = false;
     public FramesReadyCallback mVideoFramesReadylistener = null;
 
     public VideoPreview(Context context) {
         super(context);
+        Log.d(TAG, "Constructor of VideoPreview(Context context)");
         mContext = context;
     }
 
     public VideoPreview(Context context, AttributeSet attrs) {
         super(context, attrs);
+        Log.d(TAG, "Constructor of VideoPreview(Context context,  AttributeSet attrs)");
         mContext = context;
     }
 
     public VideoPreview(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
+        Log.d(TAG, "Constructor of VideoPreview(Context context, AttributeSet attrs, int defStyle)");
         mContext = context;
     }
 
@@ -95,6 +99,7 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
      * release() - fully releases everything
      *****************************************/
     public void release() {
+        Log.d(TAG, "Release() existing previewWindow()");
         // clear handlers
         mWebServerHandler = null;
         mVideoEncoderHandler = null;
@@ -118,6 +123,7 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
         mVideoEncoderHandler = null;
         mWebServerHandler = null;
         mCameraThread = null;
+        mActiveCam = -1;
     }
 
     /**
@@ -140,6 +146,7 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        Log.d(TAG, "VideoPreview Window being measured!");
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
         int width = MeasureSpec.getSize(widthMeasureSpec);
         int height = MeasureSpec.getSize(heightMeasureSpec);
@@ -199,9 +206,8 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
     }
 
     public void setActiveCamera(int activeCam) {
-        if (mCameraThread != null && mCameraThread.isAlive()) {
-            mCameraThread.setActiveCameraId(activeCam);
-        }
+        // this is set when the CameraThread is created
+        mActiveCam = activeCam;
     }
 
     public void setFrameReadyListener(FramesReadyCallback listener) {
@@ -220,6 +226,7 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
     }
 
     public synchronized void createAVRecorder() {
+        Log.d(TAG, "createAVRecorder()");
         if (mCamera == null) {
             Log.e(TAG, "Null Camera in createAVRecorder() method!");
             return;
@@ -239,7 +246,9 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
     }
 
     public synchronized void createCameraThread( SurfaceTexture texture ) {
+        Log.d(TAG, "Creating Camera Thread!");
         if (mCameraThread != null) {
+            Log.d(TAG, "Releasing existing Camera Thread!");
             mCamera.release();
             mCameraThread.quitSafely();
             mCameraThread = null;
@@ -255,6 +264,9 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
             mCameraThread.setCamera(mCamera);
             mCameraThread.setCameraTexture(texture);
             mCameraThread.start();
+            if (mCameraThread != null && mCameraThread.isAlive()) {
+                mCameraThread.setActiveCameraId(mActiveCam);
+            }
             mCameraHandler = new CameraHandler(mCameraThread.getLooper());
         }
     }

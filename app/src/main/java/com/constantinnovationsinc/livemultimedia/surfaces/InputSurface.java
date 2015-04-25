@@ -33,7 +33,7 @@ import android.view.Surface;
  * to the video encoder.
  */
 public class InputSurface {
-    private static final String TAG = "InputSurface";
+    private static final String TAG = InputSurface.class.getCanonicalName();
     private static final boolean VERBOSE = false;
 
     private static final int EGL_RECORDABLE_ANDROID = 0x3142;

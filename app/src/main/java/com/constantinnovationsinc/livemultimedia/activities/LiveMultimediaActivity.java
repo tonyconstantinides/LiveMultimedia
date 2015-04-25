@@ -13,7 +13,7 @@ import com.constantinnovationsinc.livemultimedia.fragments.Camera2VideoFragment;
 
 
 public class LiveMultimediaActivity extends FragmentActivity {
-    private static final String TAG = LiveMultimediaActivity.class.getName();
+    private static final String TAG = LiveMultimediaActivity.class.getCanonicalName();
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
