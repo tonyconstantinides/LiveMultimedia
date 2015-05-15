@@ -11,7 +11,11 @@ import android.support.v4.app.FragmentActivity;
 import com.constantinnovationsinc.livemultimedia.R;
 import com.constantinnovationsinc.livemultimedia.fragments.Camera2VideoFragment;
 
-
+/********************************************************************
+ * LiveMMultimediaActivity
+ * Us this Activiity class to load the CameraFragment class
+ * that encapsulates the custom view that does all the heavy lifting
+ ********************************************************************/
 public class LiveMultimediaActivity extends FragmentActivity {
     private static final String TAG = LiveMultimediaActivity.class.getCanonicalName();
     @Override
@@ -32,16 +36,7 @@ public class LiveMultimediaActivity extends FragmentActivity {
                 transaction.commit();
             }
         }
-        String test = "Hello";
-        switch(test) {
-            case "Hello":
-              break;
-            case "Crap":
-             break;
-            default:
-            break;
-        }
-    }
+      }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {

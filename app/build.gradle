@@ -29,7 +29,7 @@ android {
             java.srcDirs = ['src/main/java']
             res.srcDirs = ['src/main/res']
         }
-       // androidTest.setRoot('src/androidTest/java')
+        // androidTest.setRoot('src/androidTest/java')
     }
 
 }
@@ -42,4 +42,4 @@ dependencies {
     }
     compile project(':android-support-v4')
     //androidTestCompile 'com.android.support.test.espresso:espresso-core:2.0'
-}
+ }

@@ -20,6 +20,11 @@ import java.io.IOException;
 import java.util.Random;
 
 
+/**************************************************
+ * FrameCatcher works for pre-Lollipop API
+ * This class wrap the Camera Preview Window CallBack
+ * so that every image is captured in this class.
+ *****************************************************/
 public class FrameCatcher implements Camera.PreviewCallback {
     private static final String TAG = FrameCatcher.class.getCanonicalName();
     private final long mExpectedSize;
@@ -42,6 +47,12 @@ public class FrameCatcher implements Camera.PreviewCallback {
         callback = receiver;
     }
 
+
+    /**********************************************************************
+     * onPreviewFrame receives each frame video frame.
+     * The frame will be color corrected and then stored in shared memory.
+     * Both image formats of NV21 or YU12 is supported
+     *******************************************************************/
     @Override
     public void onPreviewFrame(byte[] data, Camera camera) {
         if (data == null) {
@@ -117,6 +128,11 @@ public class FrameCatcher implements Camera.PreviewCallback {
         return mStoringVideoFrames;
     }
 
+    /**********************************************************************
+     * getBitmapImageFromYUV returns a bitmap from an image captured in
+     * the camera in YUV12 format. Image formats and video formats are not
+     *  the same thing.
+     *******************************************************************/
     public static Bitmap getBitmapImageFromYUV(byte[] data, int width, int height) {
         YuvImage yuvimage = new YuvImage(data, ImageFormat.NV21, width, height, null);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -128,6 +144,11 @@ public class FrameCatcher implements Camera.PreviewCallback {
         return bmp;
     }
 
+    /**********************************************************************
+     * saveBitmap() was used to debug the code and to save each captured
+     * video frame into a JPEG bitmap on your mobile device
+     * use with caution as it will flood your mobile device /Picture dir
+     *******************************************************************/
     public void saveBitmap(Bitmap finalBitmap) throws IllegalStateException {
         String root = Environment.getExternalStorageDirectory().toString() + "/Pictures";
         Random generator = new Random();
@@ -144,13 +165,17 @@ public class FrameCatcher implements Camera.PreviewCallback {
             finalBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out);
             out.flush();
             out.close();
-        } catch (FileNotFoundException e ) {
-            e.printStackTrace();
-        } catch ( IOException e) {
-            e.printStackTrace();
+        } catch (FileNotFoundException e) {
+            Log.e(TAG, e.getMessage());
+        } catch (IOException e) {
+            Log.e(TAG, e.getMessage());
         }
     }
 
+    /**********************************************************************
+     * startEncodingVideo - start the encoding by wraps its classes from
+     * the catcher as its an implementation detail
+     *******************************************************************/
     public synchronized void startEncodingVideo() {
         mRecording = false;
         mStoringVideoFrames = false;

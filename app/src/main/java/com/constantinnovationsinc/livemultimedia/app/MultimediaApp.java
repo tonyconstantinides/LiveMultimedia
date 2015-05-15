@@ -6,9 +6,9 @@ import android.content.ComponentCallbacks;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ArrayBlockingQueue;
 
-/**
- * Created by constantinnovationsinc on 8/25/14.
- */
+/*****************************************************
+ * I use the App Object to store Audio sampling data
+ *****************************************************/
 public class MultimediaApp extends Application {
 
     public  ArrayBlockingQueue<ByteBuffer> mSavedAudioData = null;

@@ -17,9 +17,12 @@ import com.constantinnovationsinc.livemultimedia.callbacks.FrameCatcher;
 import com.constantinnovationsinc.livemultimedia.previews.VideoPreview;
 import com.constantinnovationsinc.livemultimedia.utilities.SharedVideoMemory;
 
-/**
- * Created by constantinnovationsinc on 8/6/14.
- */
+/****************************************************************************
+ * The Class wraps around the Pre-Lollipop API for Android Devices
+ * Note I soon be adding a LollipopCamera classes for Camera2 API
+ * JellyBeanCamera works from Android version JellyBean and up to KitKat.
+ * Android 4.4 and 4.4
+ **************************************************************************/
 public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListener{
     private static final String TAG = JellyBeanCamera.class.getCanonicalName();
     private static final String NULL_IN_START_FRONT_CAMERA   = "Camera is Null in startFrontCamera()";
@@ -520,6 +523,11 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
        parms.setRecordingHint(value);
     }
 
+    /*****************************************************************
+    * setOnFramesReadyCallback just sets up the preview window callback
+    * implementation approach for vidoe frame capture.
+    * @param callback  - the actual callback function
+    ******************************************************************/
      public synchronized  void setOnFramesReadyCallBack(FramesReadyCallback callback) throws IllegalArgumentException, IllegalStateException {
         if (callback == null) {
             throw new IllegalArgumentException( ARGUMENT_NULL_IN_SET_ONFRAMES_READY_CALLBACK );
