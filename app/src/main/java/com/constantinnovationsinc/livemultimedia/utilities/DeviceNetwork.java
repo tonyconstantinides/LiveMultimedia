@@ -1,15 +1,32 @@
+/*
+*   Copyright 2015 Constant Innovations Inc
+*
+*    Licensed under the Apache License, Version 2.0 (the "License");
+*    you may not use this file except in compliance with the License.
+*    You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+*    Unless required by applicable law or agreed to in writing, software
+*    distributed under the License is distributed on an "AS IS" BASIS,
+*    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+*    See the License for the specific language governing permissions and
+*    limitations under the License.
+*/
 package com.constantinnovationsinc.livemultimedia.utilities;
+import android.util.Log;
 
+import org.apache.http.conn.util.InetAddressUtils;
 import java.io.*;
 import java.net.*;
 import java.util.*;
-import org.apache.http.conn.util.InetAddressUtils;
 
 public class DeviceNetwork {
+    private static final String TAG = DeviceNetwork.class.getCanonicalName();
     /**
      * Convert byte array to hex string
-     * @param bytes
-     * @return
+     * @param bytes the byte to convert
+     * @return HexString
      */
     public static String bytesToHex(byte[] bytes) {
         StringBuilder sbuf = new StringBuilder();
@@ -23,7 +40,7 @@ public class DeviceNetwork {
 
     /**
      * Get utf8 byte array.
-     * @param str
+     * @param str to convert
      * @return  array of NULL if error was found
      */
     public static byte[] getUTF8Bytes(String str) {
@@ -32,8 +49,8 @@ public class DeviceNetwork {
 
     /**
      * Load UTF8withBOM or any ansi text file.
-     * @param filename
-     * @return
+     * @param filename as string
+     * @return String
      * @throws java.io.IOException
      */
     public static String loadFileAsString(String filename) throws java.io.IOException {
@@ -55,7 +72,11 @@ public class DeviceNetwork {
             }
             return isUTF8 ? new String(baos.toByteArray(), "UTF-8") : new String(baos.toByteArray());
         } finally {
-            try{ is.close(); } catch(Exception ex){}
+            try {
+             is.close();
+             } catch(Exception ex){
+                Log.e(TAG, ex.getMessage());
+             }
         }
     }
 
@@ -72,15 +93,17 @@ public class DeviceNetwork {
                     if (!intf.getName().equalsIgnoreCase(interfaceName)) continue;
                 }
                 byte[] mac = intf.getHardwareAddress();
-                if (mac==null) return "";
+                if (mac == null) return "";
                 StringBuilder buf = new StringBuilder();
                 for (int idx : mac) {
                     buf.append(String.format("%02X:", mac[idx]));
                 }
-                if (buf.length()>0) buf.deleteCharAt(buf.length()-1);
+                if (buf.length() > 0) buf.deleteCharAt(buf.length() - 1);
                 return buf.toString();
             }
-        } catch (Exception ex) { } // for now eat exceptions
+        } catch (SocketException ex) {
+            Log.e(TAG, ex.getMessage());
+        }
         return "";
         /*try {
             // this is so Linux hack
@@ -92,7 +115,7 @@ public class DeviceNetwork {
 
     /**
      * Get IP address from first non-localhost interface
-     * @param ipv4  true=return ipv4, false=return ipv6
+     * @param useIPv4  true=return ipv4, false=return ipv6
      * @return  address or empty string
      */
     public static String getIPAddress(boolean useIPv4) {
@@ -103,6 +126,7 @@ public class DeviceNetwork {
                 for (InetAddress addr : addrs) {
                     if (!addr.isLoopbackAddress()) {
                         String sAddr = addr.getHostAddress().toUpperCase();
+                        @SuppressWarnings("deprecation")
                         boolean isIPv4 = InetAddressUtils.isIPv4Address(sAddr);
                         if (useIPv4) {
                             if (isIPv4)
@@ -116,7 +140,9 @@ public class DeviceNetwork {
                     }
                 }
             }
-        } catch (Exception ex) { } // for now eat exceptions
+        } catch (Exception ex) {
+            Log.e(TAG, ex.getMessage());
+        } // for now eat exceptions
         return "";
     }
 

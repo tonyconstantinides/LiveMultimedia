@@ -1,5 +1,19 @@
+/*
+*   Copyright 2015 Constant Innovations Inc
+*
+*    Licensed under the Apache License, Version 2.0 (the "License");
+*    you may not use this file except in compliance with the License.
+*    You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+*    Unless required by applicable law or agreed to in writing, software
+*    distributed under the License is distributed on an "AS IS" BASIS,
+*    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+*    See the License for the specific language governing permissions and
+*    limitations under the License.
+*/
 package com.constantinnovationsinc.livemultimedia.recorders;
-
 import android.content.Context;
 import android.media.MediaFormat;
 import android.util.Log;
@@ -7,13 +21,6 @@ import android.app.Activity;
 import android.os.Environment;
 import android.media.SoundPool;
 import android.media.AudioManager;
-
-import java.io.File;
-import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-
 import com.constantinnovationsinc.livemultimedia.app.MultimediaApp;
 import com.constantinnovationsinc.livemultimedia.encoders.GPUEncoder;
 import com.constantinnovationsinc.livemultimedia.encoders.AudioEncoder;
@@ -21,10 +28,12 @@ import com.constantinnovationsinc.livemultimedia.utilities.DeviceNetwork;
 import com.constantinnovationsinc.livemultimedia.utilities.SharedVideoMemory;
 import com.constantinnovationsinc.livemultimedia.utilities.HttpFileUpload;
 import com.constantinnovationsinc.livemultimedia.R;
+import java.io.File;
+import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 
-/**`
- * Created by constantinnovationsinc on 8/17/14.
- */
 public class AVRecorder implements Runnable{
     private static final String TAG = AVRecorder.class.getCanonicalName();
     private static final String ENCODING_THREAD_NAME = "AVEncodingThread";
@@ -136,6 +145,7 @@ public class AVRecorder implements Runnable{
         uploadThread.start();
     }
 
+    @SuppressWarnings("deprecation")
     public synchronized void playSound(String sound) {
         soundPool = new SoundPool(4, AudioManager.STREAM_MUSIC, 0);
         soundPool.setOnLoadCompleteListener(new SoundPool.OnLoadCompleteListener() {

@@ -1,5 +1,19 @@
+/*
+*   Copyright 2015 Constant Innovations Inc
+*
+*    Licensed under the Apache License, Version 2.0 (the "License");
+*    you may not use this file except in compliance with the License.
+*    You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+*    Unless required by applicable law or agreed to in writing, software
+*    distributed under the License is distributed on an "AS IS" BASIS,
+*    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+*    See the License for the specific language governing permissions and
+*    limitations under the License.
+*/
 package com.constantinnovationsinc.livemultimedia.encoders;
-
 import android.app.Application;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
@@ -11,11 +25,8 @@ import android.util.Log;
 import android.media.MediaCodec;
 import android.media.MediaCodecList;
 import android.media.MediaFormat;
-
 import android.media.MediaPlayer.TrackInfo;
-
 import com.constantinnovationsinc.livemultimedia.app.MultimediaApp;
-
 import java.util.LinkedList;
 import java.util.List;
 import java.nio.ByteBuffer;
@@ -23,9 +34,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteOrder;
 
-/**
- * Created by constantinnovationsinc on 8/17/14.
- */
+
 public class AudioEncoder  implements Runnable{
     private static final String TAG = AudioEncoder.class.getName();
     private static final File OUTPUT_FILENAME_DIR = Environment.getExternalStorageDirectory();
@@ -53,8 +62,8 @@ public class AudioEncoder  implements Runnable{
 
     private AudioRecord mRecorder = null;
     private Boolean mAudioRecordingStopped = false;
-    public int mAudioFrames = 0;
-    public int mAudioFramesMax = 270;
+    private int mAudioFrames = 0;
+    private int mAudioFramesMax = 270;
     public MultimediaApp mApp = null;
 
     public AudioEncoder(Application app) {
@@ -79,7 +88,7 @@ public class AudioEncoder  implements Runnable{
         Log.w(TAG, "******Begin Audio Encoding***********");
     }
 
-    public synchronized  void recordAudio() {
+    private synchronized  void recordAudio() {
         try {
             short[][]   buffers  = new short[256][160];
             int         ix       = 0;
@@ -187,12 +196,12 @@ public class AudioEncoder  implements Runnable{
         return mAudioFormat;
     }
 
-
+    @SuppressWarnings("deprecation")
     private synchronized List<String> getEncoderNamesForType(String mime) {
-        LinkedList<String> names = new LinkedList<String>();
+        LinkedList<String> names = new LinkedList<>();
         MediaCodecInfo[] codecInfo = null;
         MediaCodecInfo info = null;
-        int codecTotalNum = 0;
+        int codecTotalNum;
         int sdk = android.os.Build.VERSION.SDK_INT;
         if(sdk <= android.os.Build.VERSION_CODES.JELLY_BEAN) {
             codecTotalNum = MediaCodecList.getCodecCount();
@@ -210,7 +219,7 @@ public class AudioEncoder  implements Runnable{
                     info = codecInfo[i];
                 }
             }
-            if (info instanceof MediaCodecInfo && !info.isEncoder()) {
+            if (info != null && !info.isEncoder()) {
                 continue;
             }
             if (!info.getName().startsWith("OMX.")) {
@@ -253,7 +262,7 @@ public class AudioEncoder  implements Runnable{
         codec.releaseOutputBuffer(index, false /* render */);
     }
 
-    class TrackIndex {
+    private class TrackIndex {
         int index = 0;
     }
 

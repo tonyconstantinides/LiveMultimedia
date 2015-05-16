@@ -1,5 +1,19 @@
+/*
+*   Copyright 2015 Constant Innovations Inc
+*
+*    Licensed under the Apache License, Version 2.0 (the "License");
+*    you may not use this file except in compliance with the License.
+*    You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+*    Unless required by applicable law or agreed to in writing, software
+*    distributed under the License is distributed on an "AS IS" BASIS,
+*    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+*    See the License for the specific language governing permissions and
+*    limitations under the License.
+*/
 package com.constantinnovationsinc.livemultimedia.encoders;
-
 import android.app.Application;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
@@ -17,24 +31,21 @@ import android.os.Environment;
 import android.os.SystemClock;
 import android.text.format.Time;
 import android.util.Log;
-
 import org.apache.http.HttpResponse;
-import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
-
+import com.constantinnovationsinc.livemultimedia.app.MultimediaApp;
+import com.constantinnovationsinc.livemultimedia.cameras.JellyBeanCamera;
+import com.constantinnovationsinc.livemultimedia.recorders.AVRecorder;
+import com.constantinnovationsinc.livemultimedia.utilities.SharedVideoMemory;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import com.constantinnovationsinc.livemultimedia.app.MultimediaApp;
-import com.constantinnovationsinc.livemultimedia.cameras.JellyBeanCamera;
-import com.constantinnovationsinc.livemultimedia.recorders.AVRecorder;
-import com.constantinnovationsinc.livemultimedia.utilities.SharedVideoMemory;
 
 /**********************************************************************************************
  * This calls handles the encoding of the video using the hardware encoder in the GPU
@@ -224,7 +235,7 @@ public class GPUEncoder implements Runnable{
         mFormat.setInteger(MediaFormat.KEY_BIT_RATE,  mBitRate );
         mFormat.setInteger(MediaFormat.KEY_FRAME_RATE,  FRAME_RATE);
         mFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, mColorFormat);
-        mFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL );
+        mFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL);
     }
 
     /*******************************************************************
@@ -348,8 +359,6 @@ public class GPUEncoder implements Runnable{
             }
         } catch (IndexOutOfBoundsException e) {
             Log.e(TAG, e.toString());
-        } catch (IllegalStateException e){
-            Log.e(TAG, e.toString());
         } finally {
             Log.w(TAG, "Release the encodwers and the shared memory!!!!!");
             try {
@@ -367,6 +376,7 @@ public class GPUEncoder implements Runnable{
      * Encode from buffer rather than a surface
      * @param frameNum = the frame to be encoded
      ******************************************************************/
+    @SuppressWarnings("deprecation")
     public synchronized void encodeVideoFromBuffer(int frameNum, MediaCodec codec, int colorFormat ) {
         if (mLastTrackProcessed)
             return;
@@ -390,7 +400,7 @@ public class GPUEncoder implements Runnable{
         // for Y, and (stride/2)*(sliceHeight/2) for each of the Cb and Cr channels.  Application
         // of algebra and assuming that stride==width and sliceHeight==height yields:
         byte[] frameData = null;
-        byte[] videoFrame = null;
+        byte[] videoFrame;
         try {
             frameData = new byte[mEncodingWidth * mEncodingHeight * 3 / 2];
             videoFrame = new byte[frameData.length];
@@ -514,7 +524,7 @@ public class GPUEncoder implements Runnable{
         }     // EMD OF ENCODER LOOP
     }
 
-
+    @SuppressWarnings("deprecation")
     public synchronized void encodeAudio() {
         if (!mAudioFeatureActive ) {
             return;
@@ -626,6 +636,7 @@ public class GPUEncoder implements Runnable{
    * Returns the first codec capable of encoding the specified MIME type, or null if no
    * match was found.
    *************************************************************************************/
+   @SuppressWarnings("deprecation")
    private static MediaCodecInfo selectCodec(String mimeType) {
             int numCodecs = MediaCodecList.getCodecCount();
            for (int i = 0; i < numCodecs; i++) {
@@ -723,10 +734,11 @@ public class GPUEncoder implements Runnable{
     /******************************************************************************************
     * Returns true if the actual color value is close to the expected color value.  Updates
     * mLargestColorDelta.
-    * @param actual
-    * @param expected
+    * @param actual actual Color
+    * @param expected expected Color
     * @return is the color expected closew to what is displayed?
     *******************************************************************************************/
+    @SuppressWarnings("deprecation")
     boolean isColorClose(int actual, int expected) {
 	        final int MAX_DELTA = 8;
 	        int delta = Math.abs(actual - expected);
@@ -739,6 +751,7 @@ public class GPUEncoder implements Runnable{
     /***********************************************************
      * This code will be replaced by Rest Code or socket code
      ***********************************************************/
+    @SuppressWarnings("deprecation")
  	private void saveVideoToWebServer() {
 		  try {
          		final Long start = System.nanoTime();
@@ -747,60 +760,55 @@ public class GPUEncoder implements Runnable{
 			  	final String strDate = now.format2445() + "_" + start;
 		   		// Create JPEG
 				final Parameters parameters = mCamera.getParameters();
-				try {
-				 		  Thread writeToWebServer = new Thread(new Runnable() {
-				            @Override
-				            public void run() {
-				 		  		String finalPath = dirImages  +  strDate + "_image.jpg";
- 	 					  		//Log.d(TAG, "Creating filename :" + finalPath);
- 	 					  	  	try {
- 	 					  	  	    File imageSnapShot = new File( finalPath );
- 		  	   	 				    imageSnapShot.createNewFile();
-								    FileInputStream fis = new FileInputStream(imageSnapShot);
-	   	 					        //  change frame to JPEG and write to outputstream
- 	   	 					  	    final ByteArrayOutputStream bos = new ByteArrayOutputStream( );
- 	   	 					  	    int quality = 100;
- 	   	 					  	    int imageFormat = parameters.getPreviewFormat();
- 	   	 					  	    // this format is for sure with any camera
- 	   	 					  	    if ( imageFormat != ImageFormat.NV21)
- 	   	 					  		    return;
- 	   	 					  	    int  previewSizeWidth  =  parameters.getPreviewSize().width;
- 	   	 					  	    int  previewSizeHeight =  parameters.getPreviewSize().height;
- 	   	 					  	    Rect previewSize = new Rect(0, 0, previewSizeWidth, previewSizeHeight);
- 	   	 					  	    YuvImage image = new YuvImage(mVvideoFrameData,  ImageFormat.NV21, previewSizeWidth ,   previewSizeHeight , null /* strides */);
+                final Thread writeToWebServer = new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        String finalPath = dirImages + strDate + "_image.jpg";
+                        //Log.d(TAG, "Creating filename :" + finalPath);
+                        try {
+                            File imageSnapShot = new File(finalPath);
+                            imageSnapShot.createNewFile();
+                            FileInputStream fis = new FileInputStream(imageSnapShot);
+                            //  change frame to JPEG and write to outputstream
+                            final ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                            int quality = 100;
+                            int imageFormat = parameters.getPreviewFormat();
+                            // this format is for sure with any camera
+                            if (imageFormat != ImageFormat.NV21)
+                                return;
+                            int previewSizeWidth = parameters.getPreviewSize().width;
+                            int previewSizeHeight = parameters.getPreviewSize().height;
+                            Rect previewSize = new Rect(0, 0, previewSizeWidth, previewSizeHeight);
+                            YuvImage image = new YuvImage(mVvideoFrameData, ImageFormat.NV21, previewSizeWidth, previewSizeHeight, null /* strides */);
 
- 	   	 					  	    image.compressToJpeg(previewSize, quality, bos);
- 	 						  	    bos.flush();
- 	 						  	    bos.close();
- 	 						  	    ByteArrayInputStream bis = new ByteArrayInputStream(bos.toByteArray());
-				            	    String url = "http://10.19.73.148:9000/images/";
-		   	 			    	    InputStreamEntity reqEntity = new InputStreamEntity(bis, -1);
- 	 						  	    HttpClient httpclient = new DefaultHttpClient();
-				            	    HttpPost httppost = new HttpPost(url);
-				            	    reqEntity.setContentType("binary/octet-stream");
-				            	    reqEntity.setChunked(true); // Send in multiple parts if needed
-				            	    httppost.setEntity(reqEntity);
-				            	    HttpResponse response = null;
-				            	    response = httpclient.execute(httppost);
-				            	} catch (ClientProtocolException e) {
-									Log.d(TAG, e.getMessage());
-				            	} catch (IOException e) {
-									Log.d(TAG, e.getMessage());
-				            	}
-		   	 				}
-						  });
-						 writeToWebServer.start();
-						 writeToWebServer.join();
+                            image.compressToJpeg(previewSize, quality, bos);
+                            bos.flush();
+                            bos.close();
+                            ByteArrayInputStream bis = new ByteArrayInputStream(bos.toByteArray());
+                            String url = "http://10.19.73.148:9000/images/";
+                            InputStreamEntity reqEntity = new InputStreamEntity(bis, -1);
+                            HttpClient httpclient = new DefaultHttpClient();
+                            HttpPost httppost = new HttpPost(url);
+                            reqEntity.setContentType("binary/octet-stream");
+                            reqEntity.setChunked(true); // Send in multiple parts if needed
+                            httppost.setEntity(reqEntity);
+                            HttpResponse response = null;
+                            response = httpclient.execute(httppost);
+                        } catch (IOException ex) {
+                            Log.d(TAG, ex.getMessage());
+                        }
+                    }
+                    });
+                    writeToWebServer.start();
+                    writeToWebServer.join();
 
-						 long end = System.nanoTime();
-						 long elapsedTime = end - start;
-						 double seconds = (double)elapsedTime / 1000000000.0;
-						 Log.d(TAG, "Time elasped and image file written to Network: " + seconds + " [" + strDate + "]");
-					  } catch (Exception e) {
+                    long end = System.nanoTime();
+                    long elapsedTime = end - start;
+                    double seconds = (double) elapsedTime / 1000000000.0;
+                    Log.d(TAG, "Time elasped and image file written to Network: " + seconds + " [" + strDate + "]");
+       		 } catch (Exception e) {
 						  Log.e(TAG, e.getMessage());
-					  }
-		  			} finally {
-		  			}
+		    }
 	}
 
     /*************************************************************

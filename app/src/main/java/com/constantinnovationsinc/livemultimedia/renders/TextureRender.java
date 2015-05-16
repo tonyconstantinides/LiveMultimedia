@@ -1,5 +1,3 @@
-package com.constantinnovationsinc.livemultimedia.renders;
-
 /*
  * Copyright (C) 2013 The Android Open Source Project
  *
@@ -15,6 +13,8 @@ package com.constantinnovationsinc.livemultimedia.renders;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+package com.constantinnovationsinc.livemultimedia.renders;
 
 import android.graphics.SurfaceTexture;
 import android.opengl.GLES11Ext;

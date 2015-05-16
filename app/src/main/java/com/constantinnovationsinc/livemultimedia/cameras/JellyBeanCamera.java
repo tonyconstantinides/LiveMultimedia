@@ -1,21 +1,31 @@
+/*
+*   Copyright 2015 Constant Innovations Inc
+*
+*    Licensed under the Apache License, Version 2.0 (the "License");
+*    you may not use this file except in compliance with the License.
+*    You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+*    Unless required by applicable law or agreed to in writing, software
+*    distributed under the License is distributed on an "AS IS" BASIS,
+*    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+*    See the License for the specific language governing permissions and
+*    limitations under the License.
+*/
 package com.constantinnovationsinc.livemultimedia.cameras;
-
 import android.content.Context;
 import android.content.res.Configuration;
 import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.util.Log;
-import android.os.Build;
-
-import java.io.IOException;
-import java.util.List;
-
-
 import com.constantinnovationsinc.livemultimedia.callbacks.FramesReadyCallback;
 import com.constantinnovationsinc.livemultimedia.callbacks.FrameCatcher;
 import com.constantinnovationsinc.livemultimedia.previews.VideoPreview;
 import com.constantinnovationsinc.livemultimedia.utilities.SharedVideoMemory;
+import java.io.IOException;
+import java.util.List;
 
 /****************************************************************************
  * The Class wraps around the Pre-Lollipop API for Android Devices
@@ -56,6 +66,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
     private static int mActiveCameraId = -1;
     public  Boolean  mYV12ColorFormatSupported = false;
     public Boolean   mNV21ColorFormatSupported = false;
+    @SuppressWarnings("deprecation")
     public  Camera mCamera = null;
     public  VideoPreview mVideoPreview = null;
     public FrameCatcher mFrameCatcher = null;
@@ -75,14 +86,11 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      * startBackCamera
      * @return camera - active camera
      *********************************************************************/
+    @SuppressWarnings("deprecation")
     public synchronized Camera startBackCamera() throws IllegalStateException{
         Log.d(TAG, "startBackCamera()");
         setParameters( ENCODING_WIDTH, ENCODING_HEIGHT, BITRATE);
         mCamera = Camera.open(Camera.CameraInfo.CAMERA_FACING_BACK);
-        if (mCamera == null) {
-            Log.e(TAG, "startBackCamera() failed because internal Camera is Null");
-            throw new IllegalStateException( NULL_IN_START_BACK_CAMERA );
-        }
         setActiveCameraId(Camera.CameraInfo.CAMERA_FACING_BACK);
         return mCamera;
     }
@@ -91,14 +99,11 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      * startFrontCamera
      * @return camera - active camera
      *********************************************************************/
+    @SuppressWarnings("deprecation")
     public synchronized Camera startFrontCamera() throws IllegalStateException{
         Log.d(TAG, "startFrontCamera()");
         setParameters(ENCODING_WIDTH, ENCODING_HEIGHT, BITRATE);
         mCamera = Camera.open(Camera.CameraInfo.CAMERA_FACING_FRONT);
-        if (mCamera == null) {
-            Log.e(TAG, "startFrontCamera() failed because internal Camera is Null");
-            throw new IllegalStateException( NULL_IN_START_FRONT_CAMERA );
-        }
         setActiveCameraId(Camera.CameraInfo.CAMERA_FACING_FRONT);
         return mCamera;
     }
@@ -107,6 +112,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      * getNumberOfCameras()
      * @return int - number of cameras on the device
      *********************************************************************/
+    @SuppressWarnings("deprecation")
     public synchronized  int getNumberOfCameras() {
         // Try to find a front-facing camera (e.g. for videoconferencing).
         return  Camera.getNumberOfCameras();
@@ -116,6 +122,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      * isBackCamera()
      * @return Boolean - Is the active selected camera the back camera
      *********************************************************************/
+    @SuppressWarnings("deprecation")
     public synchronized  Boolean isBackCamera() {
         Boolean flag = false;
         if (getActiveCameraId() == -1)
@@ -132,6 +139,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      * isFrontCamera()
      * @return Boolean - Is the active selected camera the front camera
      *********************************************************************/
+    @SuppressWarnings("deprecation")
     public synchronized  Boolean isFrontCamera() {
         Boolean flag = false;
         if (getActiveCameraId() == -1)
@@ -176,6 +184,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      *  getImageFormat - What is the the imageFormat
      *  @return String - Get Image Format
      *****************************************************************/
+    @SuppressWarnings("deprecation")
     public synchronized String getImageFormat() {
         String value = null;
         if (mYV12ColorFormatSupported && mNV21ColorFormatSupported)  {
@@ -190,6 +199,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      *  setupPreviewWindow  encapsulates the current video
      * frame capture method
      **********************************************************/
+    @SuppressWarnings("deprecation")
     public synchronized void setupPreviewWindow() throws IllegalStateException{
         Log.d(TAG, "Camera setup the preview Window");
         try {
@@ -215,10 +225,8 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
             // set the frame rate and update the camera parameters
             setPreviewFrameRate(parameters, FRAME_RATE);
             mCamera.setParameters(parameters);
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException  | IllegalStateException e) {
            Log.e(TAG,  e.toString());
-        } catch (IllegalStateException e) {
-            Log.e(TAG,  e.toString());
         }
     }
 
@@ -255,6 +263,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      * startVideoPreview( start the preview so you cna begin capturing frames
      * @return the preview started or not
      **********************************************************/
+    @SuppressWarnings("deprecation")
     public synchronized Boolean startVideoPreview() throws  IllegalStateException{
         Log.d(TAG, "startVideoPreview()");
         if (mCamera == null ) {
@@ -301,6 +310,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
     /************************************************************
      * ensure the view is in landscape
      ************************************************************/
+    @SuppressWarnings("deprecation")
     private synchronized static Camera.Size getBestPreviewSize(List<Camera.Size> previewSizes, int width, int height) {
         Camera.Size result = null;
         if (width == 0 || height == 0) {
@@ -326,9 +336,9 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
 
     /***********************************************************
      * Sets the desired frame size and bit rate.
-     * @param width
-     * @param height
-     * @param bitRate
+     * @param width width
+     * @param height height
+     * @param bitRate the bitRate
      **********************************************************/
     private synchronized void setParameters(int width, int height, int bitRate) {
         if ((width % 16) != 0 || (height % 16) != 0) {
@@ -353,7 +363,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
                                           mPreviewHeight,
                                           getImageFormat(),
                                           mVideoPreview);
-        long bufferSize = 0;
+        long bufferSize;
         bufferSize = mPreviewWidth * mPreviewHeight  * ImageFormat.getBitsPerPixel(mImageFormat) / 8;
         long sizeWeShouldHave = (mPreviewWidth * 	mPreviewHeight  * 3 / 2);
         mCamera.setPreviewCallbackWithBuffer(null);
@@ -367,8 +377,9 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
     /******************************************************************************************
      *  The preview window can supprt different image formats depending on the camera make
      *  Almost all support NV21 and JPEG
-     * @param parameters
+     * @param parameters preview window parms
      ****************************************************************************************/
+    @SuppressWarnings("deprecation")
     private synchronized  void  queryPreviewSettings(Camera.Parameters parameters) {
         List<int[]> supportedFps = parameters.getSupportedPreviewFpsRange();
         for (int[] item : supportedFps) {
@@ -410,6 +421,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      * Change this to the resolution you want to capture and encode to
      * @param parameters camera preview settings
      ******************************************************************/
+    @SuppressWarnings("deprecation")
     private synchronized void adjustPreviewSize(Camera.Parameters parameters) {
         Log.d(TAG, "adjustPreviewSize(Camera.Parameters parameters)");
         mPreviewWidth = parameters.getPreviewSize().width;
@@ -429,6 +441,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
         parameters.setPreviewSize( (int)mPreviewWidth,  (int)mPreviewHeight);
     }
 
+    @SuppressWarnings("deprecation")
     public synchronized void lockExposureAndWhiteBalance(Camera.Parameters parameters) {
         // try to lock the camera settings to get the frame rate we want
         if (parameters.isAutoExposureLockSupported()) {
@@ -441,9 +454,10 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
 
     /*****************************************************************************************************
      * Make sure the preview capture rate is consistent by locking the exposure and white balance rate
-     * @param parameters
-     * @param frameRate
+     * @param parameters camera paramaters
+     * @param frameRate  teh frameRate
      ****************************************************************************************************/
+    @SuppressWarnings("deprecation")
     public synchronized void setPreviewFrameRate(Camera.Parameters parameters, int frameRate) {
         int actualMin = frameRate * 1000;
         int actualMax = actualMin;
@@ -472,7 +486,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
             throw new IllegalStateException( NULL_IN_GET_SHARED_MEM_FILE );
         }
         SharedVideoMemory shared = null;
-        if (mFrameCatcher.mRecording == true && mFrameCatcher.isSavingVideoFrames()) {
+        if (mFrameCatcher.mRecording && mFrameCatcher.isSavingVideoFrames()) {
             shared = mFrameCatcher.getSharedMemFile();
         }
         return shared;
@@ -492,6 +506,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
         return  mFrameCatcher.getRecordingState();
     }
 
+    @SuppressWarnings("deprecation")
      public synchronized  Camera.Parameters getParameters() throws IllegalStateException{
         if (mCamera == null) {
             throw new IllegalStateException( NULL_IN_GET_PARAMETERS );
@@ -503,10 +518,12 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
         return mActiveCameraId;
      }
 
+    @SuppressWarnings("deprecation")
      public synchronized Camera getRawCamera() {
         return mCamera;
      }
 
+    @SuppressWarnings("deprecation")
      public synchronized void setActiveCameraId(int activeCam) {
         if (activeCam == Camera.CameraInfo.CAMERA_FACING_BACK ||
             activeCam == Camera.CameraInfo.CAMERA_FACING_FRONT) {
@@ -516,6 +533,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
         }
      }
 
+    @SuppressWarnings("deprecation")
     public synchronized void setRecordingHint(Boolean value, Camera.Parameters parms) throws IllegalArgumentException {
        if (parms == null) {
            throw new IllegalArgumentException( NULL_IN_SET_RECORD_HINT );

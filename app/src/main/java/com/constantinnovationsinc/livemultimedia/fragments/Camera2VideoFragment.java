@@ -1,5 +1,19 @@
+/*
+*   Copyright 2015 Constant Innovations Inc
+*
+*    Licensed under the Apache License, Version 2.0 (the "License");
+*    you may not use this file except in compliance with the License.
+*    You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+*    Unless required by applicable law or agreed to in writing, software
+*    distributed under the License is distributed on an "AS IS" BASIS,
+*    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+*    See the License for the specific language governing permissions and
+*    limitations under the License.
+*/
 package com.constantinnovationsinc.livemultimedia.fragments;
-
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.res.Configuration;
@@ -13,7 +27,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.Button;
-
 import com.constantinnovationsinc.livemultimedia.previews.VideoPreview;
 import com.constantinnovationsinc.livemultimedia.R;
 
@@ -41,6 +54,7 @@ public class Camera2VideoFragment extends Fragment implements View.OnClickListen
         destroyVideoPreviewWindow();
     }
 
+    @SuppressWarnings("deprecation")
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
@@ -86,6 +100,7 @@ public class Camera2VideoFragment extends Fragment implements View.OnClickListen
         }
     }
 
+    @SuppressWarnings("deprecation")
     @Override
     public void onClick(View view) {
         switch (view.getId()) {
@@ -137,7 +152,7 @@ public class Camera2VideoFragment extends Fragment implements View.OnClickListen
         }
     }
 
-    public void destroyVideoPreviewWindow() {
+    private void destroyVideoPreviewWindow() {
         if (mVideoPreview != null) {
             mVideoPreview.halt();
             mVideoPreviewFrame.removeAllViews();
@@ -145,13 +160,13 @@ public class Camera2VideoFragment extends Fragment implements View.OnClickListen
         }
     }
 
-    public void createVideoPreviewWindow(int activeCam) {
+    private void createVideoPreviewWindow(int activeCam) {
         Log.d(TAG, "Creating initial VideoPreview!");
         previewWindowSetup(activeCam);
         mVideoPreviewFrame.addView(mVideoPreview);
     }
 
-    public void previewWindowSetup(int activeCam) {
+    private void previewWindowSetup(int activeCam) {
         // add surface listeners
         mVideoPreview = new VideoPreview(getActivity());
         mVideoPreview.prepare();

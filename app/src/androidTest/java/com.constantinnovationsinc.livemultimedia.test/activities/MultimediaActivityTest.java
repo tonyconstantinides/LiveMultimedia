@@ -1,24 +1,10 @@
 package com.constantinnovationsinc.livemultimedia.test.activities;
 
-import android.test.InstrumentationTestCase;
-import android.test.MoreAsserts;
+
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.suitebuilder.annotation.LargeTest;
-import android.test.suitebuilder.annotation.SmallTest;
 import com.constantinnovationsinc.livemultimedia.activities.LiveMultimediaActivity;
-import java.lang.Override;
-import android.test.InstrumentationTestCase;
-import android.test.MoreAsserts;
-import android.test.InstrumentationTestCase;
-import android.test.MoreAsserts;
-import android.test.suitebuilder.annotation.LargeTest;
-import android.test.suitebuilder.annotation.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
-import android.support.test.runner.AndroidJUnitRunner;
-import com.constantinnovationsinc.livemultimedia.app.MultimediaApp;
-import java.lang.Override;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 

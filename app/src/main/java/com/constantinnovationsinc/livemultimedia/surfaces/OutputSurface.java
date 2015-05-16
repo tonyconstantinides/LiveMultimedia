@@ -1,4 +1,3 @@
-package com.constantinnovationsinc.livemultimedia.surfaces;
 /*
  * Copyright (C) 2013 The Android Open Source Project
  *
@@ -14,7 +13,7 @@ package com.constantinnovationsinc.livemultimedia.surfaces;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+package com.constantinnovationsinc.livemultimedia.surfaces;
 import android.graphics.SurfaceTexture;
 import android.opengl.EGL14;
 import android.util.Log;

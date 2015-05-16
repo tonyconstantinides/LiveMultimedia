@@ -89,7 +89,7 @@ public abstract class NanoHTTPD {
     private final String hostname;
     private final int myPort;
     private ServerSocket myServerSocket;
-    private Set<Socket> openConnections = new HashSet<Socket>();
+    private Set<Socket> openConnections = new HashSet<>();
     private Thread myThread;
     /**
      * Pluggable strategy for asynchronously executing requests.
@@ -117,7 +117,7 @@ public abstract class NanoHTTPD {
         setAsyncRunner(new DefaultAsyncRunner());
     }
 
-    private static final void safeClose(Closeable closeable) {
+    private static void safeClose(Closeable closeable) {
         if (closeable != null) {
             try {
                 closeable.close();
@@ -126,7 +126,7 @@ public abstract class NanoHTTPD {
         }
     }
 
-    private static final void safeClose(Socket closeable) {
+    private static  void safeClose(Socket closeable) {
         if (closeable != null) {
             try {
                 closeable.close();
@@ -135,7 +135,7 @@ public abstract class NanoHTTPD {
         }
     }
 
-    private static final void safeClose(ServerSocket closeable) {
+    private static void safeClose(ServerSocket closeable) {
         if (closeable != null) {
             try {
                 closeable.close();
@@ -280,7 +280,7 @@ public abstract class NanoHTTPD {
      * @return HTTP response, see class Response for details
      */
     public Response serve(IHTTPSession session) {
-        Map<String, String> files = new HashMap<String, String>();
+        Map<String, String> files = new HashMap<>();
         Method method = session.getMethod();
         if (Method.PUT.equals(method) || Method.POST.equals(method)) {
             try {
@@ -333,7 +333,7 @@ public abstract class NanoHTTPD {
      * @return a map of <code>String</code> (parameter name) to <code>List&lt;String&gt;</code> (a list of the values supplied).
      */
     protected Map<String, List<String>> decodeParameters(String queryString) {
-        Map<String, List<String>> parms = new HashMap<String, List<String>>();
+        Map<String, List<String>> parms = new HashMap<>();
         if (queryString != null) {
             StringTokenizer st = new StringTokenizer(queryString, "&");
             while (st.hasMoreTokens()) {
@@ -475,7 +475,7 @@ public abstract class NanoHTTPD {
 
         public DefaultTempFileManager() {
             tmpdir = System.getProperty("java.io.tmpdir");
-            tempFiles = new ArrayList<TempFile>();
+            tempFiles = new ArrayList<>();
         }
 
         @Override
@@ -548,7 +548,7 @@ public abstract class NanoHTTPD {
         /**
          * Headers for the HTTP response. Use addHeader() to add lines.
          */
-        private Map<String, String> header = new HashMap<String, String>();
+        private Map<String, String> header = new HashMap<>();
         /**
          * The request method that spawned this response.
          */
@@ -818,10 +818,6 @@ public abstract class NanoHTTPD {
 
         CookieHandler getCookies();
 
-        /**
-         * Adds the files in the request body to the files map.
-         * @arg files - map to modify
-         */
         void parseBody(Map<String, String> files) throws IOException, ResponseException;
     }
 
@@ -850,7 +846,7 @@ public abstract class NanoHTTPD {
             this.inputStream = new PushbackInputStream(inputStream, BUFSIZE);
             this.outputStream = outputStream;
             String remoteIp = inetAddress.isLoopbackAddress() || inetAddress.isAnyLocalAddress() ? "127.0.0.1" : inetAddress.getHostAddress().toString();
-            headers = new HashMap<String, String>();
+            headers = new HashMap<>();
 
             headers.put("remote-addr", remoteIp);
             headers.put("http-client-ip", remoteIp);
@@ -894,16 +890,16 @@ public abstract class NanoHTTPD {
                     inputStream.unread(buf, splitbyte, rlen - splitbyte);
                 }
 
-                parms = new HashMap<String, String>();
+                parms = new HashMap<>();
                 if(null == headers) {
-                    headers = new HashMap<String, String>();
+                    headers = new HashMap<>();
                 }
 
                 // Create a BufferedReader for parsing the header.
                 BufferedReader hin = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(buf, 0, rlen)));
 
                 // Decode the header into parms and header java properties
-                Map<String, String> pre = new HashMap<String, String>();
+                Map<String, String> pre = new HashMap<>();
                 decodeHeader(hin, pre, parms, headers);
 
                 method = Method.lookup(pre.get("method"));
@@ -924,11 +920,9 @@ public abstract class NanoHTTPD {
                     r.setRequestMethod(method);
                     r.send(outputStream);
                 }
-            } catch (SocketException e) {
+            } catch (SocketException | SocketTimeoutException  e) {
                 // throw it out to close socket object (finalAccept)
                 throw e;
-            } catch (SocketTimeoutException ste) {
-                throw ste;
             } catch (IOException ioe) {
                 Response r = new Response(Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "SERVER INTERNAL ERROR: IOException: " + ioe.getMessage());
                 r.send(outputStream);
@@ -1102,7 +1096,7 @@ public abstract class NanoHTTPD {
                         throw new ResponseException(Response.Status.BAD_REQUEST, "BAD REQUEST: Content type is multipart/form-data but next chunk does not start with boundary. Usage: GET /example/file.html");
                     }
                     boundarycount++;
-                    Map<String, String> item = new HashMap<String, String>();
+                    Map<String, String> item = new HashMap<>();
                     mpline = in.readLine();
                     while (mpline != null && mpline.trim().length() > 0) {
                         int p = mpline.indexOf(':');
@@ -1117,7 +1111,7 @@ public abstract class NanoHTTPD {
                             throw new ResponseException(Response.Status.BAD_REQUEST, "BAD REQUEST: Content type is multipart/form-data but no content-disposition info found. Usage: GET /example/file.html");
                         }
                         StringTokenizer st = new StringTokenizer(contentDisposition, ";");
-                        Map<String, String> disposition = new HashMap<String, String>();
+                        Map<String, String> disposition = new HashMap<>();
                         while (st.hasMoreTokens()) {
                             String token = st.nextToken().trim();
                             int p = token.indexOf('=');
@@ -1182,7 +1176,7 @@ public abstract class NanoHTTPD {
         private int[] getBoundaryPositions(ByteBuffer b, byte[] boundary) {
             int matchcount = 0;
             int matchbyte = -1;
-            List<Integer> matchbytes = new ArrayList<Integer>();
+            List<Integer> matchbytes = new ArrayList<>();
             for (int i = 0; i < b.limit(); i++) {
                 if (b.get(i) == boundary[matchcount]) {
                     if (matchcount == 0)
@@ -1352,8 +1346,8 @@ public abstract class NanoHTTPD {
      * @author LordFokas
      */
     public class CookieHandler implements Iterable<String> {
-        private HashMap<String, String> cookies = new HashMap<String, String>();
-        private ArrayList<Cookie> queue = new ArrayList<Cookie>();
+        private HashMap<String, String> cookies = new HashMap<>();
+        private ArrayList<Cookie> queue = new ArrayList<>();
 
         public CookieHandler(Map<String, String> httpHeaders) {
             String raw = httpHeaders.get("cookie");

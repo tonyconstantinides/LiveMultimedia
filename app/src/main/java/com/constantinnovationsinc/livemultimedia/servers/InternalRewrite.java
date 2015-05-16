@@ -1,11 +1,11 @@
-package com.constantinnovationsinc.livemultimedia.servers;
-import java.util.Map;
-
-import static com.constantinnovationsinc.livemultimedia.servers.NanoHTTPD.Response;
 /**
  * @author Paul S. Hawke (paul.hawke@gmail.com)
  *         On: 9/15/13 at 2:52 PM
  */
+package com.constantinnovationsinc.livemultimedia.servers;
+import static com.constantinnovationsinc.livemultimedia.servers.NanoHTTPD.Response;
+import java.util.Map;
+
 public class InternalRewrite extends Response {
     private final String uri;
     private final Map<String, String> headers;

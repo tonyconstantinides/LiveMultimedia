@@ -1,12 +1,27 @@
+/*
+*   Copyright 2015 Constant Innovations Inc
+*
+*    Licensed under the Apache License, Version 2.0 (the "License");
+*    you may not use this file except in compliance with the License.
+*    You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+*    Unless required by applicable law or agreed to in writing, software
+*    distributed under the License is distributed on an "AS IS" BASIS,
+*    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+*    See the License for the specific language governing permissions and
+*    limitations under the License.
+*/
 package com.constantinnovationsinc.livemultimedia.encoders;
-
 import android.media.MediaCodec;
 import android.media.MediaFormat;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.opengl.GLES20;
 import android.util.Log;
-
+import com.constantinnovationsinc.livemultimedia.surfaces.InputSurface;
+import com.constantinnovationsinc.livemultimedia.surfaces.OutputSurface;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,9 +29,6 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.io.BufferedOutputStream;
 import javax.microedition.khronos.opengles.GL10;
-
-import com.constantinnovationsinc.livemultimedia.surfaces.InputSurface;
-import com.constantinnovationsinc.livemultimedia.surfaces.OutputSurface;
 
 
 public class HWEncoder  implements Runnable{
@@ -82,7 +94,7 @@ public class HWEncoder  implements Runnable{
 
     /**
      * write a video chunk
-     * @param videoBuffer
+     * @param videoBuffer the video ata to write
      */
    	public void writeVideoChunk(byte[]  videoBuffer) {
    			Log.d(TAG, "Streaming h264 video buffer!");
@@ -95,14 +107,10 @@ public class HWEncoder  implements Runnable{
    			System.arraycopy(h264Buffer, 0, streamBuffer, 0, h264Buffer.length);
 
    	        try {
-   	          		Log.d(TAG, "Sending video chunk to server");
-   	               send();
-   	       } catch (IOException e) {
-   	            Log.e(getClass().getSimpleName(),e.getMessage());
-   	       } catch (InterruptedException e) {
-   	           e.printStackTrace();
-   	       } catch ( Exception e) {
-   	           e.printStackTrace();
+   	      		Log.d(TAG, "Sending video chunk to server");
+   	            send();
+   	       } catch (IOException | InterruptedException e) {
+   	            Log.e(TAG, e.getMessage());
    	       }
    	}
    
@@ -120,10 +128,7 @@ public class HWEncoder  implements Runnable{
         } catch (IOException e) {
 
         }
-        try {
-            thread.interrupt();
-        } catch (Exception e) {
-        }
+        thread.interrupt();
         thread = null;
     }
     
@@ -408,6 +413,7 @@ public class HWEncoder  implements Runnable{
         * Returns the first codec capable of encoding the specified MIME type, or null if no
         * match was found.
         */
+       @SuppressWarnings("deprecation")
         private static MediaCodecInfo selectCodec(String mimeType) {
             int numCodecs = MediaCodecList.getCodecCount();
            for (int i = 0; i < numCodecs; i++) {
@@ -485,9 +491,10 @@ public class HWEncoder  implements Runnable{
                    }
            } 
              
-             /**
+         /**
                  * Does the actual work for encoding frames from buffers of byte[].
-                */
+          */
+          @SuppressWarnings("deprecation")
            private void doEncodeDecodeVideoFromBuffer(MediaCodec encoder, int encoderColorFormat,
                                                       MediaCodec decoder, boolean toSurface) {
                     final int TIMEOUT_USEC = 10000;
@@ -784,6 +791,7 @@ public class HWEncoder  implements Runnable{
            /**
              * Does the actual work for encoding and decoding from Surface to Surface.
            */
+           @SuppressWarnings("deprecation")
             private void doEncodeDecodeVideoFromSurfaceToSurface(MediaCodec encoder,
                         InputSurface inputSurface,
                         int encoderColorFormat, 

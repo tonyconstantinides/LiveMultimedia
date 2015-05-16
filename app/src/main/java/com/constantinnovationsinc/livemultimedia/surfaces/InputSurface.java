@@ -1,4 +1,3 @@
-package com.constantinnovationsinc.livemultimedia.surfaces;
 /*
  * Copyright (C) 2013 The Android Open Source Project
  *
@@ -14,7 +13,7 @@ package com.constantinnovationsinc.livemultimedia.surfaces;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+package com.constantinnovationsinc.livemultimedia.surfaces;
 import android.opengl.EGL14;
 import android.opengl.EGLExt;
 import android.opengl.EGLConfig;
@@ -23,7 +22,6 @@ import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
 import android.util.Log;
 import android.view.Surface;
-
 
 /**
  * Holds state associated with a Surface used for MediaCodec encoder input.

@@ -1,5 +1,6 @@
 package com.constantinnovationsinc.livemultimedia.servers;
 
+import android.util.Log;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FilenameFilter;
@@ -18,6 +19,7 @@ import java.util.ServiceLoader;
 import java.util.StringTokenizer;
 
 public class SimpleWebServer extends NanoHTTPD {
+    private static final String TAG = SimpleWebServer.class.getCanonicalName();
     /**
      * Common mime type for dynamic content: binary
      */
@@ -228,15 +230,19 @@ public class SimpleWebServer extends NanoHTTPD {
         StringTokenizer st = new StringTokenizer(uri, "/ ", true);
         while (st.hasMoreTokens()) {
             String tok = st.nextToken();
-            if (tok.equals("/"))
-                newUri += "/";
-            else if (tok.equals(" "))
-                newUri += "%20";
-            else {
-                try {
-                    newUri += URLEncoder.encode(tok, "UTF-8");
-                } catch (UnsupportedEncodingException ignored) {
-                }
+            switch(tok) {
+                case "/":
+                    newUri += "/";
+                    break;
+                case " ":
+                    newUri += "%20";
+                    break;
+                default:
+                    try {
+                        newUri += URLEncoder.encode(tok, "UTF-8");
+                    } catch (UnsupportedEncodingException ignored) {
+                        Log.e(TAG, ignored.getMessage());
+                    }
             }
         }
         return newUri;
@@ -321,7 +327,7 @@ public class SimpleWebServer extends NanoHTTPD {
 
         String mimeTypeForFile = getMimeTypeForFile(uri);
         WebServerPlugin plugin = mimeTypeHandlers.get(mimeTypeForFile);
-        Response response = null;
+        Response response;
         if (plugin != null) {
             response = plugin.serveFile(uri, headers, session, f, mimeTypeForFile);
             if (response != null && response instanceof InternalRewrite) {

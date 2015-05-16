@@ -1,5 +1,19 @@
+/*
+*   Copyright 2015 Constant Innovations Inc
+*
+*    Licensed under the Apache License, Version 2.0 (the "License");
+*    you may not use this file except in compliance with the License.
+*    You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+*    Unless required by applicable law or agreed to in writing, software
+*    distributed under the License is distributed on an "AS IS" BASIS,
+*    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+*    See the License for the specific language governing permissions and
+*    limitations under the License.
+*/
 package com.constantinnovationsinc.livemultimedia.callbacks;
-
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
@@ -8,10 +22,8 @@ import android.graphics.YuvImage;
 import android.hardware.Camera;
 import android.os.Environment;
 import android.util.Log;
-
 import com.constantinnovationsinc.livemultimedia.utilities.ColorSpaceManager;
 import com.constantinnovationsinc.livemultimedia.utilities.SharedVideoMemory;
-
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -25,6 +37,7 @@ import java.util.Random;
  * This class wrap the Camera Preview Window CallBack
  * so that every image is captured in this class.
  *****************************************************/
+@SuppressWarnings("deprecation")
 public class FrameCatcher implements Camera.PreviewCallback {
     private static final String TAG = FrameCatcher.class.getCanonicalName();
     private final long mExpectedSize;
@@ -53,6 +66,7 @@ public class FrameCatcher implements Camera.PreviewCallback {
      * The frame will be color corrected and then stored in shared memory.
      * Both image formats of NV21 or YU12 is supported
      *******************************************************************/
+    @SuppressWarnings("deprecation")
     @Override
     public void onPreviewFrame(byte[] data, Camera camera) {
         if (data == null) {
@@ -140,8 +154,7 @@ public class FrameCatcher implements Camera.PreviewCallback {
         byte[] jdata = baos.toByteArray();
         BitmapFactory.Options bitmapFatoryOptions = new BitmapFactory.Options();
         bitmapFatoryOptions.inPreferredConfig = Bitmap.Config.RGB_565;
-        Bitmap bmp = BitmapFactory.decodeByteArray(jdata, 0, jdata.length, bitmapFatoryOptions);
-        return bmp;
+        return  BitmapFactory.decodeByteArray(jdata, 0, jdata.length, bitmapFatoryOptions);
     }
 
     /**********************************************************************
@@ -165,8 +178,6 @@ public class FrameCatcher implements Camera.PreviewCallback {
             finalBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out);
             out.flush();
             out.close();
-        } catch (FileNotFoundException e) {
-            Log.e(TAG, e.getMessage());
         } catch (IOException e) {
             Log.e(TAG, e.getMessage());
         }
