@@ -19,6 +19,7 @@ import android.content.res.Configuration;
 import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
+import android.os.Environment;
 import android.util.Log;
 import com.constantinnovationsinc.livemultimedia.callbacks.FramesReadyCallback;
 import com.constantinnovationsinc.livemultimedia.callbacks.FrameCatcher;
@@ -60,7 +61,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
     private static final int NUM_FRAMES = 300;               // 9 seconds of video
     private static int FRAME_RATE = 30;
     private static final boolean DEBUG_SAVE_FILE = true;   // save copy of encoded movie
-    private static final String DEBUG_FILE_NAME_BASE = "/sdcard/media/";
+    private static final String DEBUG_FILE_NAME_BASE =  Environment.getExternalStorageDirectory().getPath() + "/media/";
     private static final String  MIME_TYPE = "video/avc";
     private static final int IFRAME_INTERVAL = 10;          // 10 seconds between I-frames
     private static int mActiveCameraId = -1;
@@ -86,7 +87,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      * startBackCamera
      * @return camera - active camera
      *********************************************************************/
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings({"deprecation", "unused"})
     public synchronized Camera startBackCamera() throws IllegalStateException{
         Log.d(TAG, "startBackCamera()");
         setParameters( ENCODING_WIDTH, ENCODING_HEIGHT, BITRATE);
@@ -99,7 +100,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      * startFrontCamera
      * @return camera - active camera
      *********************************************************************/
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings({"deprecation", "unused"})
     public synchronized Camera startFrontCamera() throws IllegalStateException{
         Log.d(TAG, "startFrontCamera()");
         setParameters(ENCODING_WIDTH, ENCODING_HEIGHT, BITRATE);
@@ -128,7 +129,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
         if (getActiveCameraId() == -1)
             return false;
         Camera.CameraInfo info = new Camera.CameraInfo();
-        Camera.getCameraInfo( getActiveCameraId(), info);
+        Camera.getCameraInfo(getActiveCameraId(), info);
         if (info.facing == Camera.CameraInfo.CAMERA_FACING_BACK) {
            flag = true;
         }
@@ -252,7 +253,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
             throw new IllegalStateException("Camera object is Null in  setPreviewTexture()");
         }
         // this call throw an IOException
-        mCamera.setPreviewTexture( surface );
+        mCamera.setPreviewTexture(surface);
     }
 
     public void onFrameAvailable(SurfaceTexture surfaceTexture) {
@@ -263,16 +264,13 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
      * startVideoPreview( start the preview so you cna begin capturing frames
      * @return the preview started or not
      **********************************************************/
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings("all")
     public synchronized Boolean startVideoPreview() throws  IllegalStateException{
         Log.d(TAG, "startVideoPreview()");
         if (mCamera == null ) {
             throw new IllegalStateException("Null Camera object in startVideoPreview");
         }
         Camera.Parameters parameters = mCamera.getParameters();
-        if (parameters == null) {
-            throw new IllegalStateException("Null Camera parameters in startVideoPreview");
-        }
         parameters.setPreviewSize(ENCODING_WIDTH, ENCODING_HEIGHT);
         mCamera.setParameters(parameters);
         mCamera.startPreview();
@@ -315,7 +313,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
         Camera.Size result = null;
         if (width == 0 || height == 0) {
             Log.e(TAG, "Width or Height of preview surface is zero!");
-            return result;
+            return  null;
         }
         for (Camera.Size size : previewSizes) {
             if (size.width <= width && size.height <= height) {
@@ -431,14 +429,17 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
             Log.d(TAG , "Preview sizes supported by this camera is: " + size.width + "x" + size.height);
         }
         Camera.Size bestSize = getBestPreviewSize(sizes,  (int)mPreviewWidth, (int)mPreviewHeight);
-        mPreviewWidth   = bestSize.width;
-        mPreviewHeight =  bestSize.height;
-        Log.w(TAG, "Recommend size of the preview window is: " + mPreviewWidth + "," + mPreviewHeight);
-        //force it to the hardcoded value
-        mPreviewWidth = mEncodingWidth;
-        mPreviewHeight = mEncodingHeight;
-        Log.d(TAG, "New preview size is: " +  mPreviewWidth  + "x" + mPreviewHeight );
-        parameters.setPreviewSize( (int)mPreviewWidth,  (int)mPreviewHeight);
+        if (bestSize != null){
+            mPreviewWidth = bestSize.width;
+            mPreviewHeight = bestSize.height;
+            Log.w(TAG, "Recommend size of the preview window is: " + mPreviewWidth + "," + mPreviewHeight);
+        } else {
+            //force it to the hardcoded value
+            mPreviewWidth = mEncodingWidth;
+            mPreviewHeight = mEncodingHeight;
+            Log.d(TAG, "New preview size is: " + mPreviewWidth + "x" + mPreviewHeight);
+        }
+        parameters.setPreviewSize((int) mPreviewWidth, (int) mPreviewHeight);
     }
 
     @SuppressWarnings("deprecation")
@@ -460,10 +461,7 @@ public class JellyBeanCamera   implements SurfaceTexture.OnFrameAvailableListene
     @SuppressWarnings("deprecation")
     public synchronized void setPreviewFrameRate(Camera.Parameters parameters, int frameRate) {
         int actualMin = frameRate * 1000;
-        int actualMax = actualMin;
-
-        Log.d(TAG, "Setting PreviewWindow frame rate to: " + String.valueOf( actualMin) + ":" + String.valueOf(actualMax));
-        parameters.setPreviewFpsRange( actualMin, actualMax ); // for 30 fps
+      parameters.setPreviewFpsRange( actualMin, actualMin); // for 30 fps
     }
 
     /*****************************************************************************************************

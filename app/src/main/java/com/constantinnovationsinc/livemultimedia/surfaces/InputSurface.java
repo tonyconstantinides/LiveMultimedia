@@ -146,6 +146,7 @@ public class InputSurface {
     /**
      * Calls eglSwapBuffers.  Use this to "publish" the current frame.
      */
+    @SuppressWarnings("unused")
     public boolean swapBuffers() {
         return EGL14.eglSwapBuffers(mEGLDisplay, mEGLSurface);
     }

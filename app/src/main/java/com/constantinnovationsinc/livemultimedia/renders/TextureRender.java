@@ -234,8 +234,8 @@ public class TextureRender {
     }
 
     public void checkGlError(String op) {
-        int error;
-        while ((error = GLES20.glGetError()) != GLES20.GL_NO_ERROR) {
+        int error  = GLES20.glGetError();
+        if (error  != GLES20.GL_NO_ERROR) {
             Log.e(TAG, op + ": glError " + error);
             throw new RuntimeException(op + ": glError " + error);
         }

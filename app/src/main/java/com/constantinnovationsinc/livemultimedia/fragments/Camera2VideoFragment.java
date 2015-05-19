@@ -34,13 +34,9 @@ public class Camera2VideoFragment extends Fragment implements View.OnClickListen
     private static final String TAG = Camera2VideoFragment.class.getCanonicalName();
     private FrameLayout mVideoPreviewFrame;
     private VideoPreview mVideoPreview;
-    private Button mButtonBackCamera;
-    private Button mButtonFrontCamera;
-    private Button mButtonRecordVideo;
-    private Button mButtonExit;
     private Boolean mRecording = false;
-    private int mEncodingWidth = 1280;
-    private int mEncodingHeight = 720;
+
+
 
     public static Camera2VideoFragment newInstance() {
         Camera2VideoFragment fragment = new Camera2VideoFragment();
@@ -61,10 +57,10 @@ public class Camera2VideoFragment extends Fragment implements View.OnClickListen
         Log.d(TAG, "onCreateView for Camera2VideoFragment");
         View view = inflater.inflate(R.layout.fragment_camera2_video, container, false);
         mVideoPreviewFrame = (FrameLayout) view.findViewById(R.id.videoPreviewFrame);
-        mButtonBackCamera = (Button) view.findViewById(R.id.backcamera);
-        mButtonFrontCamera = (Button) view.findViewById(R.id.frontcamera);
-        mButtonRecordVideo = (Button) view.findViewById(R.id.recordvideo);
-        mButtonExit        = (Button) view.findViewById(R.id.exit);
+        Button mButtonBackCamera = (Button) view.findViewById(R.id.backcamera);
+        Button mButtonFrontCamera = (Button) view.findViewById(R.id.frontcamera);
+        Button mButtonRecordVideo = (Button) view.findViewById(R.id.recordvideo);
+        Button mButtonExit        = (Button) view.findViewById(R.id.exit);
         if (mVideoPreviewFrame != null) {
             createVideoPreviewWindow(Camera.CameraInfo.CAMERA_FACING_BACK);
         }
@@ -114,6 +110,7 @@ public class Camera2VideoFragment extends Fragment implements View.OnClickListen
             break;
             case R.id.recordvideo: {
                 mRecording = !mRecording;
+                Button mButtonRecordVideo = (Button) view.findViewById(R.id.recordvideo);
                 if (mRecording) {
                     mButtonRecordVideo.setText("Stop");
                 } else {
@@ -167,6 +164,8 @@ public class Camera2VideoFragment extends Fragment implements View.OnClickListen
     }
 
     private void previewWindowSetup(int activeCam) {
+        int mEncodingWidth = 1280;
+        int mEncodingHeight = 720;
         // add surface listeners
         mVideoPreview = new VideoPreview(getActivity());
         mVideoPreview.prepare();

@@ -69,16 +69,14 @@ public class GPUEncoder implements Runnable{
     private static final int NUM_FRAMES = 210;               // 10 seconds of video
     private static int FRAME_RATE = 30;
 	private static final boolean DEBUG_SAVE_FILE = true;   // save copy of encoded movie
-	private static final String DEBUG_FILE_NAME_BASE = "/sdcard/media/";
+	private static final String DEBUG_FILE_NAME_BASE = Environment.getExternalStorageDirectory().getPath() + "/media/";
     private static final String  MIME_TYPE = "video/avc";
     private static final int IFRAME_INTERVAL = 10;          // 10 seconds between I-frames
     private static final String AUDIO_MIME_TYPE = "audio/mp4a-latm";
 
     private String dirImages = null;
     private byte[] mVvideoFrameData = null;
-    private long bootTime = -1;
     private long realTime = -1;
-    private int mBitRate  = BITRATE;
     private int mEncodingWidth  = -1;
     private int mEncodingHeight = -1;
     private long mPreviewWidth  = -1;
@@ -214,7 +212,7 @@ public class GPUEncoder implements Runnable{
      * setupClock() record the time before the encoder loop is entered
      *******************************************************************/
     private synchronized void setupClock() {
-        bootTime = SystemClock.elapsedRealtime();
+        long bootTime = SystemClock.elapsedRealtime();
     }
 
     public synchronized void createVideoFormat() {
@@ -232,7 +230,7 @@ public class GPUEncoder implements Runnable{
 
         mColorFormat = selectColorFormat(codecInfo, MIME_TYPE);
         mFormat =  MediaFormat.createVideoFormat(MIME_TYPE, mEncodingWidth, mEncodingHeight);
-        mFormat.setInteger(MediaFormat.KEY_BIT_RATE,  mBitRate );
+        mFormat.setInteger(MediaFormat.KEY_BIT_RATE, BITRATE );
         mFormat.setInteger(MediaFormat.KEY_FRAME_RATE,  FRAME_RATE);
         mFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, mColorFormat);
         mFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL);
@@ -258,6 +256,7 @@ public class GPUEncoder implements Runnable{
      * because our MediaFormat doesn't have the Magic Goodies.  These can only be
      * obtained from the encoder after it has started processing data.
      **********************************************************************************/
+    @SuppressWarnings("all")
     private synchronized void createMuxer() {
         Log.d(TAG, "--->createMuxer()");
         if ( isExternalStorageWritable()) {
@@ -376,7 +375,7 @@ public class GPUEncoder implements Runnable{
      * Encode from buffer rather than a surface
      * @param frameNum = the frame to be encoded
      ******************************************************************/
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings("all")
     public synchronized void encodeVideoFromBuffer(int frameNum, MediaCodec codec, int colorFormat ) {
         if (mLastTrackProcessed)
             return;
@@ -432,7 +431,7 @@ public class GPUEncoder implements Runnable{
                 } else {
                     ByteBuffer inputBuf = encoderInputBuffers[inputBufIndex];
                     // the buffer should be sized to hold one full frame
-                    if (inputBuf.capacity() >= frameData.length) {
+                    if (frameData != null && inputBuf.capacity() >= frameData.length) {
                         Log.w(TAG, "buffer resize to hold correct size");
                     } else{
                         Log.e(TAG, "buffer not correct size to fit a frame");
@@ -440,7 +439,9 @@ public class GPUEncoder implements Runnable{
                     inputBuf.clear();
                     inputBuf.put(frameData);
                     mVideoTime = computePresentationTime(frameNum);
-                    encoder.queueInputBuffer(inputBufIndex, 0, frameData.length, mVideoTime, 0);
+                    if (frameData != null) {
+                        encoder.queueInputBuffer(inputBufIndex, 0, frameData.length, mVideoTime, 0);
+                    }
                     Log.w(TAG, "submitted frame : time  " + mVideoFrameEncoded +  " : " + mVideoTime + " -> to hardware encoder");
                 }
             } else {
@@ -490,6 +491,7 @@ public class GPUEncoder implements Runnable{
                     }
                     if (encodedData == null) {
                         Log.e(TAG, "encoderOutputBuffer " + encoderStatus + " was null");
+                        return;
                     } else  if ( mVideoFrameEncoded  == 1) {
                         Log.d(TAG, "-----------------------------------");
                         Log.d(TAG, "Setting csd-0 on first track");
@@ -498,11 +500,13 @@ public class GPUEncoder implements Runnable{
                     }
                         // It's usually necessary to adjust the ByteBuffer values to match BufferInfo.
                     if (mBufferInfo.size != 0) {
-                        encodedData.position(mBufferInfo.offset);
-                        encodedData.limit(mBufferInfo.offset + mBufferInfo.size);
-                        encodedSize += mBufferInfo.size;
-                        Log.w(TAG, "---->Writing Video data using MediaMuxer");
-                        mMuxer.writeSampleData(mVideoTrackIndex, encodedData, mBufferInfo);
+                        if (encodedData != null && mBufferInfo != null) {
+                            encodedData.position(mBufferInfo.offset);
+                            encodedData.limit(mBufferInfo.offset + mBufferInfo.size);
+                            encodedSize += mBufferInfo.size;
+                            Log.w(TAG, "---->Writing Video data using MediaMuxer");
+                            mMuxer.writeSampleData(mVideoTrackIndex, encodedData, mBufferInfo);
+                        }
                         if (  mAudioFeatureActive ) {
                             encodeAudio();
                             // the first frames are configured and are skipped check for that
@@ -524,7 +528,7 @@ public class GPUEncoder implements Runnable{
         }     // EMD OF ENCODER LOOP
     }
 
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings("all")
     public synchronized void encodeAudio() {
         if (!mAudioFeatureActive ) {
             return;
@@ -751,7 +755,7 @@ public class GPUEncoder implements Runnable{
     /***********************************************************
      * This code will be replaced by Rest Code or socket code
      ***********************************************************/
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings("all")
  	private void saveVideoToWebServer() {
 		  try {
          		final Long start = System.nanoTime();

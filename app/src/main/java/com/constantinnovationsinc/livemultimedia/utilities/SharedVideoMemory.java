@@ -91,7 +91,7 @@ public class SharedVideoMemory {
             Log.e(TAG, e.getMessage());
         }
     }
-
+    @SuppressWarnings("unused")
     public boolean getNextFrame(int frameNum, byte[] buffer) {
         Boolean mFlag = false;
         if (buffer == null) {

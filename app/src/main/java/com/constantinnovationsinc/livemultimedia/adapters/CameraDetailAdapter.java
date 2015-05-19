@@ -25,20 +25,19 @@ import java.util.ArrayList;
 
 public class CameraDetailAdapter extends ArrayAdapter<String> {
     private Context mContext;
-    private ArrayList<String> mDataset = new ArrayList<>();
+
 
     // Provide a suitable constructor (depends on the kind of dataset)
     public  CameraDetailAdapter(Context context, ArrayList<String> items) {
         super(context, 0, items);
         mContext = context;
-        mDataset = items;
     }
 
     public View getView(int position, View convertView, ViewGroup parent) {
         View view = convertView;
         if (view == null) {
             LayoutInflater inflater = (LayoutInflater) mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-            view = inflater.inflate(R.layout.fragment_camera_detail, null);
+            view = inflater.inflate(R.layout.fragment_camera_detail, parent);
         }
         return view;
     }

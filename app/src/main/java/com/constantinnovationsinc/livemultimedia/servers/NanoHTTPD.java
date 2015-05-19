@@ -1,4 +1,5 @@
 package com.constantinnovationsinc.livemultimedia.servers;
+import android.util.Log;
 import java.io.*;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -67,7 +68,9 @@ import java.util.TimeZone;
  * <p/>
  * See the separate "LICENSE.md" file for the distribution license (Modified BSD licence)
  */
+@SuppressWarnings("ALL")
 public abstract class NanoHTTPD {
+    private final static String TAG  = NanoHTTPD.class.getCanonicalName();
     /**
      * Maximum time to wait on Socket.getInputStream().read() (in milliseconds)
      * This is required as the Keep-Alive HTTP connections would otherwise
@@ -122,6 +125,7 @@ public abstract class NanoHTTPD {
             try {
                 closeable.close();
             } catch (IOException e) {
+                Log.e(TAG, e.getMessage());
             }
         }
     }
@@ -131,6 +135,7 @@ public abstract class NanoHTTPD {
             try {
                 closeable.close();
             } catch (IOException e) {
+               Log.e(TAG, e.getMessage());
             }
         }
     }
@@ -140,6 +145,7 @@ public abstract class NanoHTTPD {
             try {
                 closeable.close();
             } catch (IOException e) {
+               Log.e(TAG, e.getMessage());
             }
         }
     }
@@ -188,6 +194,7 @@ public abstract class NanoHTTPD {
                             }
                         });
                     } catch (IOException e) {
+                       Log.e(TAG, e.getMessage());
                     }
                 } while (!myServerSocket.isClosed());
             }

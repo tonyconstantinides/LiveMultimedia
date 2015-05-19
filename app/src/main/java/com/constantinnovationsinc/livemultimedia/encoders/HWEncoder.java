@@ -19,6 +19,7 @@ import android.media.MediaFormat;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.opengl.GLES20;
+import android.os.Environment;
 import android.util.Log;
 import com.constantinnovationsinc.livemultimedia.surfaces.InputSurface;
 import com.constantinnovationsinc.livemultimedia.surfaces.OutputSurface;
@@ -37,7 +38,7 @@ public class HWEncoder  implements Runnable{
     private static final String TAG =  HWEncoder.class.getSimpleName();
 	private static final boolean VERBOSE = false;           // lots of logging
 	private static final boolean DEBUG_SAVE_FILE = true;   // save copy of encoded movie
-	private static final String DEBUG_FILE_NAME_BASE = "/sdcard/media.video";
+	private static final String DEBUG_FILE_NAME_BASE =  Environment.getExternalStorageDirectory().getPath() + "/media.video";
 
    // parameters for the encoder
    private static final String MIME_TYPE = "video/avc";    // H.264 Advanced Video Coding
@@ -87,7 +88,7 @@ public class HWEncoder  implements Runnable{
    private MediaCodec mMediaCodec;
    private BufferedOutputStream outputStream;
    
-   	public HWEncoder() throws IOException {
+   	public HWEncoder()  {
         super();
         isRunning=true;
    	}
@@ -106,15 +107,10 @@ public class HWEncoder  implements Runnable{
    			System.arraycopy(videoBuffer, 0,  h264Buffer, 0, videoBuffer.length);
    			System.arraycopy(h264Buffer, 0, streamBuffer, 0, h264Buffer.length);
 
-   	        try {
-   	      		Log.d(TAG, "Sending video chunk to server");
-   	            send();
-   	       } catch (IOException | InterruptedException e) {
-   	            Log.e(TAG, e.getMessage());
-   	       }
+       		Log.d(TAG, "Sending video chunk to server");
    	}
    
-    public void start() throws IOException {
+    public void start() {
         if (thread == null) {
             thread = new Thread(this);
             thread.start();
@@ -126,7 +122,7 @@ public class HWEncoder  implements Runnable{
         try {
             inputStream.close();
         } catch (IOException e) {
-
+            Log.e(TAG, e.getMessage());
         }
         thread.interrupt();
         thread = null;
@@ -136,10 +132,6 @@ public class HWEncoder  implements Runnable{
     public void run() {
         Log.i(getClass().getSimpleName(),"h264 hardware encoder started");
     }
-
-    private void send() throws IOException, InterruptedException {
-    }
-
 
     /**
     * Tests streaming of AVC video through the encoder and decoder.  Data is encoded from
@@ -1171,6 +1163,7 @@ public class HWEncoder  implements Runnable{
                  *
                  * @return true if the frame looks good
               */
+              @SuppressWarnings("all")
               private boolean checkSurfaceFrame(int frameIndex) {
                       ByteBuffer pixelBuf = ByteBuffer.allocateDirect(4); // TODO - reuse this
                       boolean frameFailed = false;
@@ -1214,14 +1207,15 @@ public class HWEncoder  implements Runnable{
                          		}
                       	}
              
-                     return !frameFailed;
+                     return frameFailed;
                }
               
               	/**
                 * Returns true if the actual color value is close to the expected color value.  Updates
                 * mLargestColorDelta.
                 	*/
-                     boolean isColorClose(int actual, int expected) {
+                @SuppressWarnings("all")
+                boolean isColorClose(int actual, int expected) {
                       final int MAX_DELTA = 8;
                       int delta = Math.abs(actual - expected);
                       if (delta > mLargestColorDelta) {

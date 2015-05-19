@@ -185,8 +185,7 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
                                           int arg1,
                                           int arg2) {
         Log.d(TAG, "SurfaceTexture now Available!");
-        final SurfaceTexture texture = image;
-        createCameraThread( texture );
+        createCameraThread( image );
         setAlpha(1.0f);
         if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
             setRotation(90.0f);
@@ -269,20 +268,18 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
             mCameraHandler = null;
             mCamera = null;
         }
-        if (mCameraThread == null) {
-            // recreate the camera object
-            if (mCamera == null) {
-                mCamera = new JellyBeanCamera(mContext, this);
-            }
-            mCameraThread = new CameraThread("CameraThread");
-            mCameraThread.setCamera(mCamera);
-            mCameraThread.setCameraTexture(texture);
-            mCameraThread.start();
-            if (mCameraThread != null && mCameraThread.isAlive()) {
-                mCameraThread.setActiveCameraId(mActiveCam);
-            }
-            mCameraHandler = new CameraHandler(mCameraThread.getLooper());
+        // recreate the camera object
+        if (mCamera == null) {
+            mCamera = new JellyBeanCamera(mContext, this);
         }
+        mCameraThread = new CameraThread("CameraThread");
+        mCameraThread.setCamera(mCamera);
+        mCameraThread.setCameraTexture(texture);
+        mCameraThread.start();
+        if (mCameraThread != null && mCameraThread.isAlive()) {
+            mCameraThread.setActiveCameraId(mActiveCam);
+        }
+        mCameraHandler = new CameraHandler(mCameraThread.getLooper());
     }
 
     public synchronized void recordAudio() {
@@ -312,7 +309,7 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
             Log.e(TAG, e.toString());
         }
     }
-
+    @SuppressWarnings("all")
     public synchronized void stopAudioRecording() {
         try {
             if (mAudioEncodingThread == null) {
@@ -339,7 +336,7 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
             Log.e(TAG, e.toString());
         }
     }
-
+    @SuppressWarnings("all")
     public synchronized void startVideoEncoder() throws IllegalArgumentException {
         if (mCamera == null) {
             throw new IllegalStateException("Camera is null in startVideoEncoder()");

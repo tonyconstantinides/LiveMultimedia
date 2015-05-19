@@ -2,12 +2,7 @@ package com.constantinnovationsinc.livemultimedia.test.app;
 
 import android.test.ApplicationTestCase;
 import android.support.test.runner.AndroidJUnit4;
-import android.support.test.runner.AndroidJUnitRunner;
-import android.test.InstrumentationTestCase;
-import android.test.MoreAsserts;
-import android.test.suitebuilder.annotation.LargeTest;
 import android.test.suitebuilder.annotation.SmallTest;
-import java.lang.Override;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;

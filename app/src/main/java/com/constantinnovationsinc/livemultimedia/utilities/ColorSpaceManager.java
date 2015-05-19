@@ -36,6 +36,7 @@ public class ColorSpaceManager {
         return output;
     }
 
+    @SuppressWarnings("unused")
     public static byte[] NV21toYUV420SemiPlanar(byte[] input, byte[] output, int width, int height) {
         final int frameSize = width * height;
         final int qFrameSize = frameSize/4;
@@ -55,6 +56,7 @@ public class ColorSpaceManager {
         return output;
     }
 
+    @SuppressWarnings("unused")
     public synchronized static byte[] YV12toYUV420PackedSemiPlanar(final byte[] input, final byte[] output, final int width, final int height) {
     /*
      * COLOR_TI_FormatYUV420PackedSemiPlanar is YV12

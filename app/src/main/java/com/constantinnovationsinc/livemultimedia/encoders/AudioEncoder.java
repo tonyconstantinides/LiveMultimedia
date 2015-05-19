@@ -17,15 +17,16 @@ package com.constantinnovationsinc.livemultimedia.encoders;
 import android.app.Application;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
-import android.media.MediaCodecInfo;
-import android.media.MediaMuxer;
-import android.media.MediaRecorder;
-import android.os.*;
-import android.util.Log;
 import android.media.MediaCodec;
+import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.media.MediaFormat;
+import android.media.MediaMuxer;
+import android.media.MediaRecorder;
 import android.media.MediaPlayer.TrackInfo;
+import android.util.Log;
+import android.os.Build;
+import android.os.Environment;
 import com.constantinnovationsinc.livemultimedia.app.MultimediaApp;
 import java.util.LinkedList;
 import java.util.List;
@@ -43,19 +44,21 @@ public class AudioEncoder  implements Runnable{
 
     // Audio Encoder and Configuration
     //
-    private MediaMuxer mAudioMuxer;
     private MediaCodec mAudioEncoder;
     private MediaCodec.BufferInfo mAudioBufferInfo;
     private TrackInfo mAudioTrackInfo;
     private MediaFormat mAudioFormat;	// Configured with the options below
     private boolean mMuxerStarted;
     private TrackIndex mAudioTrackIndex = new TrackIndex();
+    @SuppressWarnings("all")
     private final int kAACProfiles[] = {
             2 /* OMX_AUDIO_AACObjectLC */,
             5 /* OMX_AUDIO_AACObjectHE */,
             39 /* OMX_AUDIO_AACObjectELD */
     };
+    @SuppressWarnings("all")
     private final int kSampleRates[] = { 8000, 11025, 22050, 44100, 48000 };
+    @SuppressWarnings("all")
     private final int kBitRates[] = { 64000, 128000 };
     private static final int kNumInputBytes = 256 * 1024;
     private static final long kTimeoutUs = 10000;
@@ -65,6 +68,7 @@ public class AudioEncoder  implements Runnable{
     private int mAudioFrames = 0;
     private int mAudioFramesMax = 270;
     public MultimediaApp mApp = null;
+    public  MediaMuxer mAudioMuxer = null;
 
     public AudioEncoder(Application app) {
         mApp = (MultimediaApp)app;
@@ -128,9 +132,6 @@ public class AudioEncoder  implements Runnable{
         }finally {
             mAudioRecordingStopped = true;
         }
-    }
-
-    public synchronized void stopAudioRecording() {
     }
 
     public synchronized  void release() {
@@ -199,27 +200,38 @@ public class AudioEncoder  implements Runnable{
     @SuppressWarnings("deprecation")
     private synchronized List<String> getEncoderNamesForType(String mime) {
         LinkedList<String> names = new LinkedList<>();
-        MediaCodecInfo[] codecInfo = null;
+        MediaCodecInfo[] codecInfo = new MediaCodecInfo[50];
         MediaCodecInfo info = null;
         int codecTotalNum;
-        int sdk = android.os.Build.VERSION.SDK_INT;
-        if(sdk <= android.os.Build.VERSION_CODES.JELLY_BEAN) {
+        MediaCodecList codecList = null;
+        if (Build.VERSION.SDK_INT  >= Build.VERSION_CODES.JELLY_BEAN_MR2 &&
+            Build.VERSION.SDK_INT <= Build.VERSION_CODES.KITKAT_WATCH) {
+            for (int i= 0; i < MediaCodecList.getCodecCount(); i++) {
+                codecInfo[i] = MediaCodecList.getCodecInfoAt(i);
+            }
             codecTotalNum = MediaCodecList.getCodecCount();
-        } else {
-            MediaCodecList   codecList = new MediaCodecList(MediaCodecList.ALL_CODECS);
+        } else if ( Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            codecList = new MediaCodecList(MediaCodecList.ALL_CODECS);
             codecInfo     = codecList.getCodecInfos();
             codecTotalNum = codecInfo.length;
+        } else {
+                Log.e(TAG, "Unknown Android version something wrong!");
+                return names;
         }
 
         for (int i = 0; i < codecTotalNum; ++i) {
-            if(sdk <= android.os.Build.VERSION_CODES.JELLY_BEAN) {
-                info = MediaCodecList.getCodecInfoAt(i);
-            } else {
-                if (codecInfo != null) {
-                    info = codecInfo[i];
-                }
+            if(Build.VERSION.SDK_INT >=  Build.VERSION_CODES.JELLY_BEAN_MR2 &&
+               Build.VERSION.SDK_INT <=  Build.VERSION_CODES.KITKAT_WATCH) {
+                   info = MediaCodecList.getCodecInfoAt(i);
+            } else if ( Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                   info = codecInfo[i];
             }
-            if (info != null && !info.isEncoder()) {
+            if (info == null) {
+                Log.e(TAG, "Null Encode or Decoder something wrong!");
+                return names;
+            }
+            if (!info.isEncoder()) {
+                Log.d(TAG, "skipping '" + info.getName() + "'." + " since its not an encoder");
                 continue;
             }
             if (!info.getName().startsWith("OMX.")) {
@@ -227,7 +239,7 @@ public class AudioEncoder  implements Runnable{
                 // non OMX component had to be in this list for the video
                 // editor code to work... but it cannot actually be instantiated
                 // using MediaCodec.
-                Log.d(TAG, "skipping '" + info.getName() + "'.");
+                Log.d(TAG, "skipping '" + info.getName() + "'." + " since its an OMX component");
                 continue;
             }
             String[] supportedTypes = info.getSupportedTypes();

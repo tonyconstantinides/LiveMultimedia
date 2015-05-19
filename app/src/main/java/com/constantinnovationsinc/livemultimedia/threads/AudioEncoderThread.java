@@ -15,10 +15,13 @@
 */
 package com.constantinnovationsinc.livemultimedia.threads;
 
+import android.util.Log;
 import android.os.Process;
 import android.os.HandlerThread;
 
 public class AudioEncoderThread extends HandlerThread {
+    private final static String TAG = AudioEncoderThread.class.getCanonicalName();
+
     public AudioEncoderThread(String name) {
         super(name, Process.THREAD_PRIORITY_AUDIO);
     }
@@ -26,6 +29,7 @@ public class AudioEncoderThread extends HandlerThread {
     @Override
     public void run() {
         super.run();
+        Log.d(TAG, "Running AudioEncoderThread");
     }
 
 }

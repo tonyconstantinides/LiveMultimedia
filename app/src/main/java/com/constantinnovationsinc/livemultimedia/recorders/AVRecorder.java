@@ -62,14 +62,10 @@ public class AVRecorder implements Runnable{
     /** Encoder status */
     private Boolean mEncodingStarted = false;
 
-    /** SharedVideoMemory that holds all vidoe buffers */
-    private SharedVideoMemory mSharedMemFile = null;
+    /** SharedVideoMemory that holds all video buffers */
     private Boolean mSoundLoaded = false;
-    private SoundPool soundPool = null;
     private HashMap<Integer, Integer> soundPoolMap;
     private int soundID = 1;
-    private int mEncodingWidth = 0;
-    private int mEncodingHeight = 0;
     private int mProcessAudioFrames = 0;
     /**
      * Width of the output frames.
@@ -82,6 +78,10 @@ public class AVRecorder implements Runnable{
     /**
      * The destination file for the encoded output.
      */
+    public SharedVideoMemory mSharedMemFile = null;
+    public SoundPool soundPool = null;
+    public int mEncodingWidth = 0;
+    public int mEncodingHeight = 0;
 
 
     private AVRecorder() {
@@ -102,13 +102,12 @@ public class AVRecorder implements Runnable{
         mEncodingStarted = false;
     }
 
-    public synchronized Boolean setSharedMemFile(SharedVideoMemory mem){
+    @SuppressWarnings("unused")
+    public synchronized void setSharedMemFile(SharedVideoMemory mem){
         if (mem == null) {
             Log.e(TAG,"SharedMemoryFile is Null passed to AVRecorder!");
-            return false;
         }
         mSharedMemFile = mem;
-        return true;
     }
 
     public synchronized void prepare() {

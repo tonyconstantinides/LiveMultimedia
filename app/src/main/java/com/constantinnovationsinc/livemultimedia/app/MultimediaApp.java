@@ -15,7 +15,7 @@
 */
 package com.constantinnovationsinc.livemultimedia.app;
 import android.app.Application;
-import android.content.ComponentCallbacks;
+import android.util.Log;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ArrayBlockingQueue;
 
@@ -23,7 +23,7 @@ import java.util.concurrent.ArrayBlockingQueue;
  * I use the App Object to store Audio sampling data
  *****************************************************/
 public class MultimediaApp extends Application {
-
+    private static final String TAG = MultimediaApp.class.getCanonicalName();
     public  ArrayBlockingQueue<ByteBuffer> mSavedAudioData = null;
 
     public synchronized  void saveAudioData(ByteBuffer data) {
@@ -47,17 +47,13 @@ public class MultimediaApp extends Application {
     @Override
     public void onLowMemory() {
         super.onLowMemory();
-    }
-
-    @Override
-    public void registerComponentCallbacks(ComponentCallbacks callback) {
-        super.registerComponentCallbacks(callback);
+        Log.e(TAG, "Low Memory Warning!");
     }
 
     @Override
     public void onTerminate() {
         super.onTerminate();
-
+        Log.e(TAG, "App terminating!");
     }
 
 }

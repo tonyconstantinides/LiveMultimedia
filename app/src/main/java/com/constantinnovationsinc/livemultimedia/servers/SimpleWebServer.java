@@ -90,14 +90,14 @@ public class SimpleWebServer extends NanoHTTPD {
                     + "THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT\n"
                     + "(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE\n"
                     + "OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
-    private static Map<String, WebServerPlugin> mimeTypeHandlers = new HashMap<String, WebServerPlugin>();
+    private static Map<String, WebServerPlugin> mimeTypeHandlers = new HashMap<>();
     private final List<File> rootDirs;
     private final boolean quiet;
 
     public SimpleWebServer(String host, int port, File wwwroot, boolean quiet) {
         super(host, port);
         this.quiet = quiet;
-        this.rootDirs = new ArrayList<File>();
+        this.rootDirs = new ArrayList<>();
         this.rootDirs.add(wwwroot);
 
         this.init();
@@ -106,7 +106,7 @@ public class SimpleWebServer extends NanoHTTPD {
     public SimpleWebServer(String host, int port, List<File> wwwroots, boolean quiet) {
         super(host, port);
         this.quiet = quiet;
-        this.rootDirs = new ArrayList<File>(wwwroots);
+        this.rootDirs = new ArrayList<>(wwwroots);
 
         this.init();
     }
@@ -115,6 +115,7 @@ public class SimpleWebServer extends NanoHTTPD {
      * Used to initialize and customize the server.
      */
     public void init() {
+        Log.d(TAG, "Init Web Server");
     }
 
     /**
@@ -125,9 +126,9 @@ public class SimpleWebServer extends NanoHTTPD {
         int port = 8080;
 
         String host = "127.0.0.1";
-        List<File> rootDirs = new ArrayList<File>();
+        List<File> rootDirs = new ArrayList<>();
         boolean quiet = false;
-        Map<String, String> options = new HashMap<String, String>();
+        Map<String, String> options = new HashMap<>();
 
         // Parse command-line, with short and long versions of the options.
         for (int i = 0; i < args.length; ++i) {
