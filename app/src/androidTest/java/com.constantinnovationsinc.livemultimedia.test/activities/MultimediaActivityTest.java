@@ -13,7 +13,7 @@ import org.junit.runner.RunWith;
 public class MultimediaActivityTest
         extends  ActivityInstrumentationTestCase2 {
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings("all")
     public MultimediaActivityTest() {
         super(LiveMultimediaActivity.class);
     }

@@ -31,16 +31,15 @@ import android.os.Environment;
 import android.os.SystemClock;
 import android.text.format.Time;
 import android.util.Log;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.InputStreamEntity;
-import org.apache.http.impl.client.DefaultHttpClient;
 import com.constantinnovationsinc.livemultimedia.app.MultimediaApp;
 import com.constantinnovationsinc.livemultimedia.cameras.JellyBeanCamera;
 import com.constantinnovationsinc.livemultimedia.recorders.AVRecorder;
 import com.constantinnovationsinc.livemultimedia.utilities.SharedVideoMemory;
-import java.io.ByteArrayInputStream;
+
+import java.io.BufferedOutputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -83,7 +82,6 @@ public class GPUEncoder implements Runnable{
     private long mPreviewHeight = -1;
     private int mImageFormat    = -1;
     // used in memory calculation
-    private int mFreeMegs = -1;
     private int  mUsedMegs = -1;
     private int mColorFormat = -1;
     // largest color component delta seen (i.e. actual vs. expected)
@@ -107,7 +105,6 @@ public class GPUEncoder implements Runnable{
     private static int mVideoTrackIndex = -1;
     private static int mAudioTrackIndex = -1;
     /** Encoder status */
-    private Boolean mEncodingStarted = false;
     private String mOutputFile = null;
     private boolean mLastTrackProcessed = false;
     private AVRecorder mRecorder = null;
@@ -192,7 +189,7 @@ public class GPUEncoder implements Runnable{
     }
 
     public synchronized void  reportMemoryUsage() {
-        mFreeMegs = (int) (Runtime.getRuntime().freeMemory() - Debug.getNativeHeapFreeSize());
+        int  mFreeMegs = (int) (Runtime.getRuntime().freeMemory() - Debug.getNativeHeapFreeSize());
         String freeMegsString = String.format(" - Free Memory  %d MB", mFreeMegs);
         Log.d(TAG, "---------------------------------------------------");
         Log.d(TAG, "Memory free to be used in this app in megs is: " + freeMegsString);
@@ -343,6 +340,7 @@ public class GPUEncoder implements Runnable{
         // most of the time the encoder sits in this loop
         // encoding frames until there is no more left
         // currently it is encoding faster than I can feed it
+        Boolean mEncodingStarted = false;
         Log.w(TAG, "--->Start to run encoders<----");
         if (mSharedMemFile == null) {
             Log.e(TAG, "SharedMemory file is null in runEncodedLoop!");
@@ -681,6 +679,7 @@ public class GPUEncoder implements Runnable{
       * @return - true if this is a color format that this test code understands (i.e. we know how
       * to read and generate frames in this format).
       ***********************************************************************************************/
+      @SuppressWarnings("deprecation")
        private static boolean isRecognizedFormat(int colorFormat) {
                 boolean flag = false;
             switch (colorFormat) {
@@ -714,6 +713,7 @@ public class GPUEncoder implements Runnable{
     * Returns true if the specified color format is semi-planar YUV.  Throws an exception
     * if the color format is not recognized (e.g. not YUV).
      ***************************************************************************************/
+    @SuppressWarnings("deprecation")
      private static boolean isSemiPlanarYUV(int colorFormat) {
            switch (colorFormat) {
              case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar:
@@ -768,8 +768,12 @@ public class GPUEncoder implements Runnable{
                     @Override
                     public void run() {
                         String finalPath = dirImages + strDate + "_image.jpg";
+                        String urlRange = "http://10.19.73.148:9000/images/";
+                        HttpURLConnection conn = null;
                         //Log.d(TAG, "Creating filename :" + finalPath);
                         try {
+                            URL url = new URL(urlRange);
+                            conn = (HttpURLConnection)url.openConnection();
                             File imageSnapShot = new File(finalPath);
                             imageSnapShot.createNewFile();
                             FileInputStream fis = new FileInputStream(imageSnapShot);
@@ -784,22 +788,25 @@ public class GPUEncoder implements Runnable{
                             int previewSizeHeight = parameters.getPreviewSize().height;
                             Rect previewSize = new Rect(0, 0, previewSizeWidth, previewSizeHeight);
                             YuvImage image = new YuvImage(mVvideoFrameData, ImageFormat.NV21, previewSizeWidth, previewSizeHeight, null /* strides */);
-
                             image.compressToJpeg(previewSize, quality, bos);
                             bos.flush();
                             bos.close();
-                            ByteArrayInputStream bis = new ByteArrayInputStream(bos.toByteArray());
-                            String url = "http://10.19.73.148:9000/images/";
-                            InputStreamEntity reqEntity = new InputStreamEntity(bis, -1);
-                            HttpClient httpclient = new DefaultHttpClient();
-                            HttpPost httppost = new HttpPost(url);
-                            reqEntity.setContentType("binary/octet-stream");
-                            reqEntity.setChunked(true); // Send in multiple parts if needed
-                            httppost.setEntity(reqEntity);
-                            HttpResponse response = null;
-                            response = httpclient.execute(httppost);
+
+                            if (conn != null) {
+                                conn.setConnectTimeout(30000);
+                                conn.setDefaultUseCaches(true);
+                                conn.setDoOutput(true);
+                                conn.setChunkedStreamingMode(0);
+                                OutputStream os = new BufferedOutputStream(conn.getOutputStream());
+                                os.write(bos.toByteArray());
+                                //
+                                // reqEntity.setContentType("binary/octet-stream");
+                            }
                         } catch (IOException ex) {
                             Log.d(TAG, ex.getMessage());
+                        }
+                        finally {
+                            conn.disconnect();
                         }
                     }
                     });

@@ -3,9 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/LiveMultimedia.iml" filepath="$PROJECT_DIR$/LiveMultimedia.iml" />
-      <module fileurl="file://$PROJECT_DIR$/android-support-v4/android-support-v4.iml" filepath="$PROJECT_DIR$/android-support-v4/android-support-v4.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
-      <module fileurl="file://$PROJECT_DIR$/backend/backend.iml" filepath="$PROJECT_DIR$/backend/backend.iml" />
     </modules>
   </component>
 </project>

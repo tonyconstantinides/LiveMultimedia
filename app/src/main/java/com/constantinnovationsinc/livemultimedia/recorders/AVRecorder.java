@@ -133,7 +133,7 @@ public class AVRecorder implements Runnable{
                     // Set your file path here
                     FileInputStream fstrm = new FileInputStream(Environment.getExternalStorageDirectory().toString() + "/Movies/EncodedAV-1280x720.mp4");
                     // Set your server page url (and the file title/description)
-                    String url = "http://" + DeviceNetwork.getIPAddress(true) + ":8080";
+                    String url = "http://" + DeviceNetwork.getLocalIpAddress() + ":8080";
                     HttpFileUpload hfu = new HttpFileUpload(url, "Video file", "Recorded file");
                     hfu.Send_Now(fstrm);
                 } catch (FileNotFoundException e) {

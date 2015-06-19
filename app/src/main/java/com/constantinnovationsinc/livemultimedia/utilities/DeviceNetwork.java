@@ -16,7 +16,7 @@
 package com.constantinnovationsinc.livemultimedia.utilities;
 import android.util.Log;
 
-import org.apache.http.conn.util.InetAddressUtils;
+import java.net.InetAddress;
 import java.io.*;
 import java.net.*;
 import java.util.*;
@@ -105,45 +105,24 @@ public class DeviceNetwork {
             Log.e(TAG, ex.getMessage());
         }
         return "";
-        /*try {
-            // this is so Linux hack
-            return loadFileAsString("/sys/class/net/" +interfaceName + "/address").toUpperCase().trim();
-        } catch (IOException ex) {
-            return null;
-        }*/
     }
 
-    /**
-     * Get IP address from first non-localhost interface
-     * @param useIPv4  true=return ipv4, false=return ipv6
-     * @return  address or empty string
-     */
-    public static String getIPAddress(boolean useIPv4) {
+
+    public static String getLocalIpAddress() {
         try {
-            List<NetworkInterface> interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
-            for (NetworkInterface intf : interfaces) {
-                List<InetAddress> addrs = Collections.list(intf.getInetAddresses());
-                for (InetAddress addr : addrs) {
-                    if (!addr.isLoopbackAddress()) {
-                        String sAddr = addr.getHostAddress().toUpperCase();
-                        @SuppressWarnings("deprecation")
-                        boolean isIPv4 = InetAddressUtils.isIPv4Address(sAddr);
-                        if (useIPv4) {
-                            if (isIPv4)
-                                return sAddr;
-                        } else {
-                            if (!isIPv4) {
-                                int delim = sAddr.indexOf('%'); // drop ip6 port suffix
-                                return delim<0 ? sAddr : sAddr.substring(0, delim);
-                            }
-                        }
+            for (Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces(); en.hasMoreElements();) {
+                NetworkInterface intf = en.nextElement();
+                for (Enumeration<InetAddress> enumIpAddr = intf.getInetAddresses(); enumIpAddr.hasMoreElements();) {
+                    InetAddress inetAddress = enumIpAddr.nextElement();
+                    if (!inetAddress.isLoopbackAddress()) {
+                        return inetAddress.getHostAddress().toString();
                     }
                 }
             }
-        } catch (Exception ex) {
-            Log.e(TAG, ex.getMessage());
-        } // for now eat exceptions
-        return "";
+        } catch (SocketException ex) {
+            Log.e(TAG, ex.toString());
+        }
+        return null;
     }
 
 }

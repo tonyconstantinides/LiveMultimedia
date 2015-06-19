@@ -377,7 +377,7 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
 
     public synchronized void startWebServer() {
         try {
-            String host = DeviceNetwork.getIPAddress(true);
+            String host = DeviceNetwork.getLocalIpAddress();
             TextView text = new TextView(mContext);
             text.setText(host + ":8080");
             text.setX(0f);
@@ -401,7 +401,7 @@ public class VideoPreview extends TextureView implements SurfaceTextureListener,
                 @Override
                 public void run() {
                     try {
-                        String host = DeviceNetwork.getIPAddress(true);
+                        String host = DeviceNetwork.getLocalIpAddress();
                         Log.w(TAG, "Device ip is " + host);
                         int port = 8080;
                         mWebServer = new VideoServer(host, port);

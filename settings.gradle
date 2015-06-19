@@ -1,1 +1,1 @@
-include ':app', ':android-support-v4', ':backend'
+include ':app'

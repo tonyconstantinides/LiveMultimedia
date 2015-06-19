@@ -128,8 +128,7 @@ public class SharedVideoMemory {
      * @param count      number of bytes to write.
      * @throws IOException if the memory file has been purged or deactivated.
      */
-    public void writeBytes(byte[] buffer, int srcOffset, int destOffset, int count)
-            throws IOException {
+    public void writeBytes(byte[] buffer, int srcOffset, int destOffset, int count) {
         try {
             mSharedMemFile.writeBytes(buffer, srcOffset, destOffset, count);
             mFrameCount++;

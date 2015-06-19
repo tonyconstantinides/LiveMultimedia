@@ -451,6 +451,7 @@ public class HWEncoder  implements Runnable{
          * Returns true if this is a color format that this test code understands (i.e. we know how
           * to read and generate frames in this format).
           */
+           @SuppressWarnings("deprecation")
            private static boolean isRecognizedFormat(int colorFormat) {
                 switch (colorFormat) {
                    // these are the formats we know how to handle for this test
@@ -466,10 +467,11 @@ public class HWEncoder  implements Runnable{
          }
            
            /**
-           416     * Returns true if the specified color format is semi-planar YUV.  Throws an exception
-           417     * if the color format is not recognized (e.g. not YUV).
-           418     */
-             private static boolean isSemiPlanarYUV(int colorFormat) {
+            * Returns true if the specified color format is semi-planar YUV.  Throws an exception
+            * if the color format is not recognized (e.g. not YUV).
+            */
+           @SuppressWarnings("deprecation")
+           private static boolean isSemiPlanarYUV(int colorFormat) {
                    switch (colorFormat) {
                      case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar:
                       case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420PackedPlanar:
@@ -484,7 +486,7 @@ public class HWEncoder  implements Runnable{
            } 
              
          /**
-                 * Does the actual work for encoding frames from buffers of byte[].
+          * Does the actual work for encoding frames from buffers of byte[].
           */
           @SuppressWarnings("deprecation")
            private void doEncodeDecodeVideoFromBuffer(MediaCodec encoder, int encoderColorFormat,
