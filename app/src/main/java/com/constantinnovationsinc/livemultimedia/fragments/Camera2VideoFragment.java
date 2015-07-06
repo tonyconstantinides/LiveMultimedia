@@ -18,6 +18,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.res.Configuration;
 import android.hardware.Camera;
+import android.os.Build;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
 import android.util.Log;
@@ -28,15 +29,18 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.Button;
 import com.constantinnovationsinc.livemultimedia.previews.VideoPreview;
+import com.constantinnovationsinc.livemultimedia.cameras.AndroidCamera;
+import com.constantinnovationsinc.livemultimedia.views.CameraView;
 import com.constantinnovationsinc.livemultimedia.R;
+
 
 public class Camera2VideoFragment extends Fragment implements View.OnClickListener {
     private static final String TAG = Camera2VideoFragment.class.getCanonicalName();
     private FrameLayout mVideoPreviewFrame;
-    private VideoPreview mVideoPreview;
     private Boolean mRecording = false;
-
-
+    private CameraView mCameraView = null;      // for new api
+    private VideoPreview mVideoPreview = null;  // for legacy api
+    private int mCurrentApiVersion = -1;
 
     public static Camera2VideoFragment newInstance() {
         Camera2VideoFragment fragment = new Camera2VideoFragment();
@@ -55,15 +59,27 @@ public class Camera2VideoFragment extends Fragment implements View.OnClickListen
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         Log.d(TAG, "onCreateView for Camera2VideoFragment");
+        mCurrentApiVersion = android.os.Build.VERSION.SDK_INT;
         View view = inflater.inflate(R.layout.fragment_camera2_video, container, false);
-        mVideoPreviewFrame = (FrameLayout) view.findViewById(R.id.videoPreviewFrame);
+        if (mVideoPreviewFrame != null) {
+            if (mCurrentApiVersion  >= Build.VERSION_CODES.JELLY_BEAN_MR2 &&
+                mCurrentApiVersion  <= Build.VERSION_CODES.KITKAT) {
+                createVideoPreviewWindow(Camera.CameraInfo.CAMERA_FACING_BACK);
+            }
+            if (mCurrentApiVersion >= Build.VERSION_CODES.LOLLIPOP) {
+                createVideoPreviewWindowEnhanced();
+            }
+        }
+
+        return view;
+    }
+
+    @Override
+    public void onViewCreated(final View view, Bundle savedInstanceState) {
         Button mButtonBackCamera = (Button) view.findViewById(R.id.backcamera);
         Button mButtonFrontCamera = (Button) view.findViewById(R.id.frontcamera);
         Button mButtonRecordVideo = (Button) view.findViewById(R.id.recordvideo);
         Button mButtonExit        = (Button) view.findViewById(R.id.exit);
-        if (mVideoPreviewFrame != null) {
-            createVideoPreviewWindow(Camera.CameraInfo.CAMERA_FACING_BACK);
-        }
         if (mButtonRecordVideo != null) {
             mButtonRecordVideo.setOnClickListener(this);
         }
@@ -76,24 +92,45 @@ public class Camera2VideoFragment extends Fragment implements View.OnClickListen
         if (mButtonFrontCamera != null) {
             mButtonFrontCamera.setOnClickListener(this);
         }
-         return view;
+        view.findViewById(R.id.info).setOnClickListener(this);
+        mCameraView = (CameraView) view.findViewById(R.id.texture);
     }
-
 
     @Override
     public void onResume() {
         super.onResume();
-        if (mVideoPreview != null) {
-            mVideoPreview.prepare();
+        if (mCurrentApiVersion  >= Build.VERSION_CODES.JELLY_BEAN_MR2 &&
+            mCurrentApiVersion  <= Build.VERSION_CODES.KITKAT) {
+            if (mVideoPreview != null) {
+                mVideoPreview.prepare();
+            }
+        }
+        if (mCurrentApiVersion  >= Build.VERSION_CODES.LOLLIPOP) {
+            if(mCameraView != null) {
+                mCameraView.startBackgroundThread();
+                if (mCameraView.isAvailable()) {
+                    mCameraView.openCamera(mCameraView.getWidth(), mCameraView.getHeight());
+                } else {
+                   // mCameraView.setSurfaceTextureListener(mSurfaceTextureListener);
+                }
+                mCameraView.prepare();
+            }
         }
     }
 
     @Override
     public void onPause() {
-        super.onPause();
-        if (mVideoPreview != null) {
-            mVideoPreview.halt();
+        if (mCurrentApiVersion  >= Build.VERSION_CODES.JELLY_BEAN_MR2 &&
+                mCurrentApiVersion  <= Build.VERSION_CODES.KITKAT) {
+            if (mVideoPreview != null) {
+                mVideoPreview.halt();
+            }
         }
+        if (mCurrentApiVersion  >= Build.VERSION_CODES.LOLLIPOP) {
+            mCameraView.halt();
+            mCameraView.stopBackgroundThread();
+        }
+        super.onPause();
     }
 
     @SuppressWarnings("deprecation")
@@ -101,11 +138,23 @@ public class Camera2VideoFragment extends Fragment implements View.OnClickListen
     public void onClick(View view) {
         switch (view.getId()) {
             case R.id.backcamera: {
-                createNewVideoPreview(Camera.CameraInfo.CAMERA_FACING_BACK);
+                if (mCurrentApiVersion  >= Build.VERSION_CODES.JELLY_BEAN_MR2 &&
+                    mCurrentApiVersion  <= Build.VERSION_CODES.KITKAT) {
+                    createNewVideoPreview(Camera.CameraInfo.CAMERA_FACING_BACK);
+                }
+                if (mCurrentApiVersion  >= Build.VERSION_CODES.LOLLIPOP) {
+                    createNewVideoPreviewEnchanced(0);
+                }
             }
             break;
             case R.id.frontcamera: {
-                createNewVideoPreview(Camera.CameraInfo.CAMERA_FACING_FRONT);
+                if (mCurrentApiVersion  >= Build.VERSION_CODES.JELLY_BEAN_MR2 &&
+                    mCurrentApiVersion  <= Build.VERSION_CODES.KITKAT) {
+                    createNewVideoPreview(Camera.CameraInfo.CAMERA_FACING_FRONT);
+                }
+                if (mCurrentApiVersion  >= Build.VERSION_CODES.LOLLIPOP) {
+                    createNewVideoPreviewEnchanced(1);
+                }
             }
             break;
             case R.id.recordvideo: {
@@ -116,11 +165,17 @@ public class Camera2VideoFragment extends Fragment implements View.OnClickListen
                 } else {
                     mButtonRecordVideo.setText("Record");
                 }
-                mVideoPreview.setRecordingState(mRecording);
+                if (mCurrentApiVersion  >= Build.VERSION_CODES.JELLY_BEAN_MR2 &&
+                    mCurrentApiVersion  <= Build.VERSION_CODES.KITKAT) {
+                   mVideoPreview.setRecordingState(mRecording);
+                }
             }
             break;
             case R.id.exit: {
-                destroyVideoPreviewWindow();
+                if (mCurrentApiVersion  >= Build.VERSION_CODES.JELLY_BEAN_MR2 &&
+                    mCurrentApiVersion  <= Build.VERSION_CODES.KITKAT) {
+                    destroyVideoPreviewWindow();
+                }
                 Activity activity = getActivity();
                 if (activity != null) {
                     activity.finish();
@@ -149,6 +204,15 @@ public class Camera2VideoFragment extends Fragment implements View.OnClickListen
         }
     }
 
+    private void createNewVideoPreviewEnchanced(int cameraId) {
+        if (mVideoPreviewFrame != null && mCameraView != null) {
+            destroyVideoPreviewWindowEnhanced();
+        }
+        if (mVideoPreviewFrame != null && mCameraView == null) {
+            createVideoPreviewWindowEnhanced();
+        }
+    }
+
     private void destroyVideoPreviewWindow() {
         if (mVideoPreview != null) {
             mVideoPreview.halt();
@@ -157,11 +221,26 @@ public class Camera2VideoFragment extends Fragment implements View.OnClickListen
         }
     }
 
+    private void destroyVideoPreviewWindowEnhanced() {
+        if (mCameraView != null) {
+            mCameraView.halt();
+            mVideoPreviewFrame.removeAllViews();
+            mCameraView = null;
+        }
+    }
+
+    private void createVideoPreviewWindowEnhanced( ) {
+        if (mCameraView != null) {
+            mCameraView.mRotation = getActivity().getWindowManager().getDefaultDisplay().getRotation();
+            mCameraView.prepare();
+        }
+    }
+
     private void createVideoPreviewWindow(int activeCam) {
         Log.d(TAG, "Creating initial VideoPreview!");
-        previewWindowSetup(activeCam);
-        mVideoPreviewFrame.addView(mVideoPreview);
-    }
+         previewWindowSetup(activeCam);
+         mVideoPreviewFrame.addView(mVideoPreview);
+   }
 
     private void previewWindowSetup(int activeCam) {
         int mEncodingWidth = 1280;
@@ -189,6 +268,4 @@ public class Camera2VideoFragment extends Fragment implements View.OnClickListen
             mVideoPreview.setAspectRatio(16, 9);
         }
     }
-
-
 }

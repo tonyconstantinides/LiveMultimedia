@@ -1,15 +1,15 @@
 apply plugin: 'com.android.application'
 android {
     compileSdkVersion 22
-    buildToolsVersion '22.0.1'
+    buildToolsVersion '23.0.0 rc2'
 
     repositories {
         jcenter()
     }
 
     defaultConfig {
-        applicationId "com.constantinnovationsinc.com.constantinnovationsinc.livemultimedia.test"
-        minSdkVersion 18
+        applicationId "com.constantinnovationsinc.com.constantinnovationsinc.livemultimedia"
+        minSdkVersion 19
         targetSdkVersion 22
         versionCode 1
         versionName "1.0"

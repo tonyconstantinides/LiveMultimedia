@@ -8,6 +8,18 @@
     <uses-feature
         android:name="android.hardware.microphone"
         android:required="true" />
+    <uses-feature
+        android:name="android.hardware.camera.hardware_level.full"
+        android:required="true" />
+    <uses-feature
+        android:name="android.hardware.camera.capability.raw"
+        android:required="true" />
+    <uses-feature
+        android:name="android.hardware.camera.capability.manual_sensor"
+        android:required="true" />
+    <uses-feature
+        android:name="android.hardware.camera.capability.manual_post_processing"
+        android:required="true" />
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />

@@ -17,9 +17,10 @@ package com.constantinnovationsinc.livemultimedia.views;
 
 import android.content.Context;
 import android.util.AttributeSet;
-import com.constantinnovationsinc.livemultimedia.previews.VideoPreview;
+import android.view.TextureView;
+//import com.constantinnovationsinc.livemultimedia.previews.VideoPreview;
 
-public class AutoFitTextureView extends VideoPreview {
+public class AutoFitTextureView extends TextureView  {
 
     private int mRatioWidth = 0;
     private int mRatioHeight = 0;

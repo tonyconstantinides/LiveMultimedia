@@ -172,7 +172,7 @@ public class AVRecorder implements Runnable{
         if (sound.equalsIgnoreCase( START_CAPTURE_FRAMES_SOUND )) {
             soundID = soundPool.load(mContext, R.raw.powerup, 1);
         } else if (sound.equalsIgnoreCase( START_ENCODERS_SOUND )) {
-            soundID = soundPool.load(mContext, R.raw.swish, 1);
+            soundID = soundPool.load(mContext, R.raw.powerup, 1);
         } else if (sound.equalsIgnoreCase(MP4_FILE_WRITTEN_SOUND)) {
             soundID = soundPool.load(mContext, R.raw.mp4written, 1);
         }

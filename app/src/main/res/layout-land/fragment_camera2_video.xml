@@ -16,14 +16,13 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
-    <FrameLayout
-        android:id="@+id/videoPreviewFrame"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_alignParentTop="true"
-        android:layout_alignParentStart="true"
-        android:background="#4285f4">
-    </FrameLayout>
+    <com.constantinnovationsinc.livemultimedia.views.CameraView
+            android:id="@+id/texture"
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentEnd="true"
+        android:layout_alignParentStart="true" />
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

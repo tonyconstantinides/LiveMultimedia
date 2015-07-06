@@ -33,23 +33,26 @@ import java.util.List;
  * JellyBeanCamera works from Android version JellyBean and up to KitKat.
  * Android 4.3 and 4.4
  **************************************************************************/
-public class JellyBeanCamera extends AndroidCamera {
+public class JellyBeanCamera extends BaseCamera {
     private static final String TAG = JellyBeanCamera.class.getCanonicalName();
-
-    private static final int ENCODING_WIDTH  = 1280;
-    private static final int ENCODING_HEIGHT = 720;
-    private static final int BITRATE = 6000000;
-    private static final int NUM_CAMERA_PREVIEW_BUFFERS = 2;
     // movie length, in frames
     private static int mActiveCameraId = -1;
     private int mFrameRate = 30;
     public  Boolean  mYV12ColorFormatSupported = false;
-    public Boolean   mNV21ColorFormatSupported = false;
+    public  Boolean   mNV21ColorFormatSupported = false;
     @SuppressWarnings("deprecation")
     public  Camera mCamera = null;
     public  VideoPreview mVideoPreview = null;
-    public FrameCatcher mFrameCatcher = null;
+    public  FrameCatcher mFrameCatcher = null;
 
+    /*********************************************************************
+     * Constructor
+     * @param context - the context associated with this encoding thread
+     *********************************************************************/
+    public JellyBeanCamera(Context context) {
+        super(context);
+        Log.d(TAG, "JellyBean constructor called!");
+    }
 
     /*********************************************************************
      * Constructor
@@ -64,14 +67,15 @@ public class JellyBeanCamera extends AndroidCamera {
     /*********************************************************************
      * startBackCamera
      * @return camera - active camera
+     * @exception  IllegalStateException if camera is in wrong state
      *********************************************************************/
     @SuppressWarnings({"deprecation", "unused"})
-    public synchronized Camera startBackCamera() throws IllegalStateException{
+    public synchronized JellyBeanCamera startBackCamera() throws IllegalStateException{
         Log.d(TAG, "startBackCamera()");
         setParameters(ENCODING_WIDTH, ENCODING_HEIGHT, BITRATE);
         mCamera = Camera.open(Camera.CameraInfo.CAMERA_FACING_BACK);
         setActiveCameraId(Camera.CameraInfo.CAMERA_FACING_BACK);
-        return mCamera;
+        return this;
     }
 
     /*********************************************************************
@@ -79,12 +83,12 @@ public class JellyBeanCamera extends AndroidCamera {
      * @return camera - active camera
      *********************************************************************/
     @SuppressWarnings({"deprecation", "unused"})
-    public synchronized Camera startFrontCamera() throws IllegalStateException{
+    public synchronized JellyBeanCamera startFrontCamera() throws IllegalStateException{
         Log.d(TAG, "startFrontCamera()");
         setParameters(ENCODING_WIDTH, ENCODING_HEIGHT, BITRATE);
         mCamera = Camera.open(Camera.CameraInfo.CAMERA_FACING_FRONT);
         setActiveCameraId(Camera.CameraInfo.CAMERA_FACING_FRONT);
-        return mCamera;
+        return this;
     }
 
     /*********************************************************************
@@ -221,10 +225,13 @@ public class JellyBeanCamera extends AndroidCamera {
         setupVideoFrameCallback();
     }
 
-    /**********************************************************
+    /*********************************************************************
      * setPreviewTexture same as the camera pi but with error handling
      * @param surface surfaceTexture of the preview window
-     **********************************************************/
+     * @exception IllegalArgumentException SurfaceTexture is null
+     * @exception IllegalStateException Camera object is null
+     * @exception IOException  setPreviewTexture can cause this exception
+     ********************************************************************/
     public  synchronized void setPreviewTexture( SurfaceTexture surface) throws IllegalArgumentException, IllegalStateException, IOException {
         if (surface == null) {
             throw new IllegalArgumentException("SurfaceTexture is Null in setPreviewTexture()");
@@ -236,6 +243,10 @@ public class JellyBeanCamera extends AndroidCamera {
         mCamera.setPreviewTexture(surface);
     }
 
+    /*********************************************************************
+     * onFramesAvialable is called when this surface receives a new frame
+     * @param surfaceTexture  of the preview window
+     ********************************************************************/
     public void onFrameAvailable(SurfaceTexture surfaceTexture) {
         Log.w(TAG, "Receiving frames from Texture!");
     }
@@ -243,6 +254,7 @@ public class JellyBeanCamera extends AndroidCamera {
     /**********************************************************
      * startVideoPreview( start the preview so you cna begin capturing frames
      * @return the preview started or not
+     * @exception IllegalStateException is camera is null
      **********************************************************/
     @SuppressWarnings("all")
     public synchronized Boolean startVideoPreview() throws  IllegalStateException{
@@ -296,6 +308,7 @@ public class JellyBeanCamera extends AndroidCamera {
 
     /************************************************************
      * ensure the view is in landscape
+     * @deprecated
      ************************************************************/
     @SuppressWarnings("deprecation")
     private synchronized static Camera.Size getBestPreviewSize(List<Camera.Size> previewSizes, int width, int height) {
@@ -514,11 +527,6 @@ public class JellyBeanCamera extends AndroidCamera {
 
      public synchronized  int getActiveCameraId() {
         return mActiveCameraId;
-     }
-
-    @SuppressWarnings("deprecation")
-     public synchronized Camera getRawCamera() {
-        return mCamera;
      }
 
     public synchronized  int getBitRate() {
