@@ -26,7 +26,7 @@ import com.constantinnovationsinc.livemultimedia.fragments.Camera2VideoFragment;
 
 /********************************************************************
  * LiveMMultimediaActivity
- * Us this Activiity class to load the CameraFragment class
+ * Us this Activity class to load the CameraFragment class
  * that encapsulates the custom view that does all the heavy lifting
  ********************************************************************/
 public class LiveMultimediaActivity extends FragmentActivity {

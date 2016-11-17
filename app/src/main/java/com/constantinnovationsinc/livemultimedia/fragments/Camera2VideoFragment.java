@@ -18,7 +18,6 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.res.Configuration;
 import android.hardware.Camera;
-import android.nfc.NfcAdapter;
 import android.os.Build;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
@@ -30,7 +29,6 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.Button;
 import com.constantinnovationsinc.livemultimedia.previews.VideoPreview;
-import com.constantinnovationsinc.livemultimedia.cameras.AndroidCamera;
 import com.constantinnovationsinc.livemultimedia.views.CameraView;
 import com.constantinnovationsinc.livemultimedia.R;
 
