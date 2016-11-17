@@ -18,6 +18,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.res.Configuration;
 import android.hardware.Camera;
+import android.nfc.NfcAdapter;
 import android.os.Build;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
@@ -40,8 +41,7 @@ public class Camera2VideoFragment extends Fragment implements View.OnClickListen
     private Boolean mRecording = false;
     private CameraView mCameraView = null;      // for new api
     private VideoPreview mVideoPreview = null;  // for legacy api
-    private int mCurrentApiVersion = -1;
-
+    private final static int   mCurrentApiVersion = android.os.Build.VERSION.SDK_INT;
     public static Camera2VideoFragment newInstance() {
         Camera2VideoFragment fragment = new Camera2VideoFragment();
         fragment.setRetainInstance(true);
@@ -54,13 +54,12 @@ public class Camera2VideoFragment extends Fragment implements View.OnClickListen
         destroyVideoPreviewWindow();
     }
 
-    @SuppressWarnings("deprecation")
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         Log.d(TAG, "onCreateView for Camera2VideoFragment");
-        mCurrentApiVersion = android.os.Build.VERSION.SDK_INT;
         View view = inflater.inflate(R.layout.fragment_camera2_video, container, false);
+
         if (mVideoPreviewFrame != null) {
             if (mCurrentApiVersion  >= Build.VERSION_CODES.JELLY_BEAN_MR2 &&
                 mCurrentApiVersion  <= Build.VERSION_CODES.KITKAT) {

@@ -5,6 +5,8 @@
       <root url="jar://$PROJECT_DIR$/app/build/intermediates/exploded-aar/com.android.support.test/testing-support-lib/0.1/jars/classes.jar!/" />
     </CLASSES>
     <JAVADOC />
-    <SOURCES />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/AppData/Local/Android/Sdk/extras/android/m2repository/com/android/support/test/testing-support-lib/0.1/testing-support-lib-0.1-sources.jar!/" />
+    </SOURCES>
   </library>
 </component>

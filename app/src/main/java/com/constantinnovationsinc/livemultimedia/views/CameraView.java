@@ -169,26 +169,17 @@ public class CameraView extends TextureView implements FramesReadyCallback{
         };
     }
 
-
-    public void setVideoMode() {
-    }
-
-    public void setPhotoMode() {
-
-    }
-
-    public void setPhotoVideoMode() {
-
-    }
-
+    @Override
     public void recordAudio() {
 
     }
 
+    @Override
     public void startVideoEncoder() {
 
     }
 
+    @Override
     public void playLazerSound() {
 
     }
